@@ -19,7 +19,7 @@ let fieldCards = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + field
 let mutable digitNames: list<string> = []
 
 // TODO: Variant that is a bit more likely to return true for middle pixels?
-let isWhitish(color: Color) = color.GetBrightness() > 0.45f && color.GetSaturation() < 0.1f
+let isWhitish(color: Color) = color.GetBrightness() > 0.55f && color.GetSaturation() < 0.1f
 
 let getDigitFromBitmap(point: Point, img: Bitmap): Bitmap =
     let (width, height) = (26, 36)
@@ -44,50 +44,50 @@ let saveDigitFilesFromExampleScreenshot() =
 
     let myCard0Selected = myCards.[0] + cardSelectionOffset
 
-    saveDigitFileFromScreenshot("1", myCards.[1] + rightDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("1_1", myCards.[1] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("1_2", myCards.[3] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("1_3", fieldCards.[0, 0] + topDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("2", myCard0Selected + bottomDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("2_1", myCard0Selected + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("2_2", myCards.[2] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("2_3", opponentCards.[1] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("2_4", opponentCards.[2] + topDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("3", opponentCards.[2] + rightDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("3_1", opponentCards.[2] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("3_2", opponentCards.[4] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("3_3", opponentCards.[4] + bottomDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("4", myCards.[4] + leftDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("4_1", myCards.[4] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("4_2", fieldCards.[0, 0] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("4_3", opponentCards.[1] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("4_4", opponentCards.[3] + bottomDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("5", myCard0Selected + rightDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("5_1", myCard0Selected + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("5_2", myCards.[1] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("5_3", myCards.[4] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("5_4", opponentCards.[3] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("5_5", opponentCards.[3] + rightDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("6", myCards.[2] + rightDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("6_1", myCards.[2] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("6_2", fieldCards.[0, 0] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("6_3", opponentCards.[1] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("6_4", opponentCards.[2] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("6_5", opponentCards.[3] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("6_6", opponentCards.[4] + leftDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("7", myCards.[3] + leftDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("7_1", myCards.[3] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("7_2", myCards.[3] + bottomDigitOffset, screenshot)
     saveDigitFileFromScreenshot("7_3", fieldCards.[0, 0] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("7_4", opponentCards.[1] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("7_5", opponentCards.[2] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("7_6", opponentCards.[4] + rightDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("8", myCards.[2] + leftDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("8_1", myCards.[2] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("8_2", myCards.[3] + rightDigitOffset, screenshot)
     saveDigitFileFromScreenshot("8_3", myCards.[4] + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("8_3", myCards.[4] + rightDigitOffset, screenshot)
 
-    saveDigitFileFromScreenshot("9", myCard0Selected + topDigitOffset, screenshot)
+    saveDigitFileFromScreenshot("9_1", myCard0Selected + topDigitOffset, screenshot)
     saveDigitFileFromScreenshot("9_2", myCard0Selected + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("9_3", myCards.[1] + leftDigitOffset, screenshot)
     saveDigitFileFromScreenshot("9_4", myCards.[1] + bottomDigitOffset, screenshot)
@@ -113,15 +113,21 @@ let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
     (float)absDifference / (float)maxAbsDifference
 
 let printDiffs() =
+    let mutable diffs = []
+
     for i in 0 .. digitNames.Length-1 do
         for j in i+1 .. digitNames.Length-1 do
             let (n1, n2) = (List.nth digitNames i, List.nth digitNames j)
             let diff = bitmapDifference(new Bitmap(imageDir + "digit"+n1+".png"), new Bitmap(imageDir + "digit"+n2+".png"))
+            diffs <- (diff, n1.[0] = n2.[0]) :: diffs
+
             printfn "DIFFERENCE B/W %s & %s: %f" n1 n2 diff
         done
         printfn ""
     done
 
+    printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
+    printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
 
 [<EntryPoint>]
 let main argv = 
