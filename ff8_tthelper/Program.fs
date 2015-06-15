@@ -128,6 +128,14 @@ let printDiffs() =
     printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
     printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
 
+// TODO: Read in-game state from screenshot:
+// turnPhase = SelectingCard (selectedCardIndex) | SelectingTarget (handCoords) | OpponentsTurn
+// opponentHand: array<optional Card>
+// myHand: array<optional Card>
+// playGridSlot = Card * owner | Empty (optional element)
+// Card = strenghts * modifier * element
+
+
 [<EntryPoint>]
 let main argv = 
     let sw = new System.Diagnostics.Stopwatch()
