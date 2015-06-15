@@ -24,13 +24,12 @@ let isWhitish(color: Color) = color.GetBrightness() > 0.55f && color.GetSaturati
 let getDigitFromBitmap(point: Point, img: Bitmap): Bitmap =
     let (width, height) = (26, 36)
     let subImage = new Bitmap(width, height, img.PixelFormat)
-    for y = 0 to height-1 do
-        for x = 0 to width-1 do
-            let pixel = img.GetPixel(point.X + x, point.Y + y)
-            if isWhitish(pixel) then
-                subImage.SetPixel(x, y, pixel)
-        done
-    done
+
+    seq { for y in 0 .. height-1 do
+            for x in 0 .. width-1 -> (x, y, img.GetPixel(point.X + x, point.Y + y)) }
+        |> Seq.filter (fun (_, _, color) -> isWhitish(color))
+        |> Seq.iter subImage.SetPixel
+
     subImage
 
 let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
@@ -96,9 +95,7 @@ let saveDigitFilesFromExampleScreenshot() =
     screenshot.Dispose()
 
 let pixelAbsDiff(pixel1: Color, pixel2: Color): int =
-    abs((int)pixel2.R - (int)pixel1.R) +
-        abs((int)pixel2.G - (int)pixel1.G) +
-        abs((int)pixel2.B - (int)pixel2.B)
+    abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel2.B)
 
 let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
     // TODO: Variant that emphasizes middle pixels over edge pixels?
