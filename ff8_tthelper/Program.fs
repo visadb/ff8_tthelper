@@ -18,18 +18,21 @@ let fieldCards = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + field
 
 let mutable digitNames: list<string> = []
 
-// TODO: Variant that is a bit more likely to return true for middle pixels?
-let isWhitish(color: Color) = color.GetBrightness() > 0.55f && color.GetSaturation() < 0.1f
+let isDigitPixel(color: Color, relDistFromEdge: float32) =
+    color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
+    // was: color.GetBrightness() > 0.55f && color.GetSaturation() < 0.1f
 
 let getDigitFromBitmap(point: Point, img: Bitmap): Bitmap =
     let (width, height) = (26, 36)
-    let subImage = new Bitmap(width, height, img.PixelFormat)
 
+    let maxAbsDistFromEdge = (float32)(min width height) / 2.0f
+    let relDistanceFromEdge x y = (float32)(List.min [ x+1 ; y+1 ; width-x ; height-y ]) / maxAbsDistFromEdge
+
+    let subImage = new Bitmap(width, height, img.PixelFormat)
     seq { for y in 0 .. height-1 do
             for x in 0 .. width-1 -> (x, y, img.GetPixel(point.X + x, point.Y + y)) }
-        |> Seq.filter (fun (_, _, color) -> isWhitish(color))
+        |> Seq.filter (fun (x, y, color) -> isDigitPixel(color, relDistanceFromEdge x y))
         |> Seq.iter subImage.SetPixel
-
     subImage
 
 let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
@@ -98,7 +101,6 @@ let pixelAbsDiff(pixel1: Color, pixel2: Color): int =
     abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel2.B)
 
 let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
-    // TODO: Variant that emphasizes middle pixels over edge pixels?
     let maxAbsDifference = bitmap1.Width * bitmap1.Height * 255 * 3
     let pixelCoords = seq { for y in 0..(bitmap1.Height-1) do
                                 for x in 0..(bitmap1.Width-1) do
