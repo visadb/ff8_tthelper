@@ -1,5 +1,8 @@
 ﻿open System.Drawing
 
+open DomainTypes
+
+
 let imageDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\images\"
 
 let opponentHandCardYOffsets = [0 ; 154 ; 308; 462 ; 616]
