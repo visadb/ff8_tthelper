@@ -50,9 +50,10 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Compile Include="DomainTypes.fs" />
+    <Compile Include="GameStateDetection.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
