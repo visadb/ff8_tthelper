@@ -20,7 +20,7 @@ let rightDigitOffset = Size(30, 39)
 let bottomDigitOffset = Size(15, 78)
 let cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
 
-let opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) myHandPosition)
+let opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
 let playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffset*i, 93 + fieldCardYOffset*j) ] ]
 
@@ -93,12 +93,22 @@ let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int opt
                                             | _ -> cardPos
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
-let readGameState screenshot = {
-    turnPhase = MyCardSelection 1
-    opponentsHand = [| |]
-    myHand = [| |]
-    playGrid = array2D []
-}
+let readGameState screenshot = 
+    let turnPhase = MyCardSelection 0
+    match turnPhase with
+        | OpponentsTurn -> { turnPhase = turnPhase
+                             opponentsHand = [| |]
+                             myHand = [| |]
+                             playGrid = array2D [] }
+        | MyCardSelection i -> { turnPhase = turnPhase
+                                 opponentsHand = readHand screenshot opponentHandCardPositions Option.None
+                                 myHand = readHand screenshot myHandCardPositions (Some i)
+                                 playGrid = array2D [] }
+        | MyTargetSelection (_, _) -> { turnPhase = turnPhase
+                                        opponentsHand = readHand screenshot opponentHandCardPositions Option.None
+                                        myHand = readHand screenshot myHandCardPositions Option.None
+                                        playGrid = array2D [] }
+
     
 module Bootstrap =
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =

@@ -13,7 +13,7 @@ let main argv =
     //printDiffs()
 
     let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
-    printfn "%s" (handToString <| readHand screenshot myHandCardPositions (Some 0))
+    printfn "%A" <| readGameState screenshot
     screenshot.Dispose()
 
     sw.Stop()
