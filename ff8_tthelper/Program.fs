@@ -1,5 +1,6 @@
 ﻿open GameStateDetection
 
+open DomainTypes
 open System.Drawing
 
 [<EntryPoint>]
@@ -12,7 +13,7 @@ let main argv =
     //printDiffs()
 
     let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
-    printfn "Strengths: %A" <| readCardStrengths screenshot myCards.[1]
+    printfn "%s" (handToString <| readHand screenshot myHandCardPositions (Some 0))
     screenshot.Dispose()
 
     sw.Stop()

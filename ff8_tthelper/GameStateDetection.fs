@@ -8,8 +8,8 @@ let imageDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\images\"
 
 let myHandPosition = Point(1381, 93)
 let opponentHandPosition = Point(331, 94)
-let opponentHandCardYOffsets = [0 ; 154 ; 308; 462 ; 616]
-let myHandCardYOffsets = [0 ; 154 ; 309; 463 ; 617]
+let opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
+let myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
 let cardSelectionOffset = Size(-45, 0)
 let (fieldCardXOffset, fieldCardYOffset) = (0, 0)
 
@@ -18,11 +18,11 @@ let topDigitOffset = Size(15, 0)
 let leftDigitOffset = Size(0, 39)
 let rightDigitOffset = Size(30, 39)
 let bottomDigitOffset = Size(15, 78)
-let cardStrengthOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
+let cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
 
-let opponentCards = [| for i in 0..4 -> opponentHandPosition + Size(0, opponentHandCardYOffsets.[i]) |]
-let myCards = [| for i in 0..4 -> myHandPosition + Size(0, myHandCardYOffsets.[i]) |]
-let fieldCards = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffset*i, 93 + fieldCardYOffset*j) ] ]
+let opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) myHandPosition)
+let myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
+let playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffset*i, 93 + fieldCardYOffset*j) ] ]
 
 let mutable digitNames: list<string> = []
 
@@ -83,12 +83,22 @@ let readDigitValue digitBitmap: int =
         |> List.minBy snd
         |> fst
 
-let readCardStrengths screenshot (cardTopLeftCorner: Point): int[] =
-    cardStrengthOffsets
-        |> Array.map (((+) cardTopLeftCorner) >> (getDigitBitmap screenshot) >> readDigitValue)
+let readCard screenshot (cardTopLeftCorner: Point): Card option =
+    let powers: int[] = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) >> (getDigitBitmap screenshot) >> readDigitValue)
+    Some { powers = powers ; powerModifier = 0; element = None }
 
-let readGameState(screenshot: Bitmap) =
-    123
+let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
+    let shiftCardIfSelected i (cardPos: Point) = match selectedIndex with
+                                            | Some(index) when i = index -> cardPos + cardSelectionOffset
+                                            | _ -> cardPos
+    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
+
+let readGameState screenshot = {
+    turnPhase = MyCardSelection 1
+    opponentsHand = [| |]
+    myHand = [| |]
+    playGrid = array2D []
+}
     
 module Bootstrap =
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
@@ -100,55 +110,55 @@ module Bootstrap =
     let saveDigitFilesFromExampleScreenshot() =
         let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
 
-        let myCard0Selected = myCards.[0] + cardSelectionOffset
+        let myCard0Selected = myHandCardPositions.[0] + cardSelectionOffset
 
-        saveDigitFileFromScreenshot("1_1", myCards.[1] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("1_2", myCards.[3] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("1_3", fieldCards.[0, 0] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("1_1", myHandCardPositions.[1] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("1_2", myHandCardPositions.[3] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("1_3", playGridCardPositions.[0, 0] + topDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("2_1", myCard0Selected + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_2", myCards.[2] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_3", opponentCards.[1] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_4", opponentCards.[2] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("2_2", myHandCardPositions.[2] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("2_3", opponentHandCardPositions.[1] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("2_4", opponentHandCardPositions.[2] + topDigitOffset, screenshot)
 
-        saveDigitFileFromScreenshot("3_1", opponentCards.[2] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("3_2", opponentCards.[4] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("3_3", opponentCards.[4] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("3_1", opponentHandCardPositions.[2] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("3_2", opponentHandCardPositions.[4] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("3_3", opponentHandCardPositions.[4] + bottomDigitOffset, screenshot)
 
-        saveDigitFileFromScreenshot("4_1", myCards.[4] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_2", fieldCards.[0, 0] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_3", opponentCards.[1] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_4", opponentCards.[3] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4_1", myHandCardPositions.[4] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4_2", playGridCardPositions.[0, 0] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4_3", opponentHandCardPositions.[1] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4_4", opponentHandCardPositions.[3] + bottomDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("5_1", myCard0Selected + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_2", myCards.[1] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_3", myCards.[4] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_4", opponentCards.[3] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_5", opponentCards.[3] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("5_2", myHandCardPositions.[1] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("5_3", myHandCardPositions.[4] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("5_4", opponentHandCardPositions.[3] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("5_5", opponentHandCardPositions.[3] + rightDigitOffset, screenshot)
 
-        saveDigitFileFromScreenshot("6_1", myCards.[2] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_2", fieldCards.[0, 0] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_3", opponentCards.[1] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_4", opponentCards.[2] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_5", opponentCards.[3] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_6", opponentCards.[4] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_1", myHandCardPositions.[2] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_2", playGridCardPositions.[0, 0] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_3", opponentHandCardPositions.[1] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_4", opponentHandCardPositions.[2] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_5", opponentHandCardPositions.[3] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_6", opponentHandCardPositions.[4] + leftDigitOffset, screenshot)
 
-        saveDigitFileFromScreenshot("7_1", myCards.[3] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_2", myCards.[3] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_3", fieldCards.[0, 0] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_4", opponentCards.[1] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_5", opponentCards.[2] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_6", opponentCards.[4] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_1", myHandCardPositions.[3] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_2", myHandCardPositions.[3] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_3", playGridCardPositions.[0, 0] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_4", opponentHandCardPositions.[1] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_5", opponentHandCardPositions.[2] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_6", opponentHandCardPositions.[4] + rightDigitOffset, screenshot)
 
-        saveDigitFileFromScreenshot("8_1", myCards.[2] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_2", myCards.[3] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_3", myCards.[4] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_3", myCards.[4] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8_1", myHandCardPositions.[2] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8_2", myHandCardPositions.[3] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8_3", myHandCardPositions.[4] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8_3", myHandCardPositions.[4] + rightDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("9_1", myCard0Selected + topDigitOffset, screenshot)
         saveDigitFileFromScreenshot("9_2", myCard0Selected + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_3", myCards.[1] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_4", myCards.[1] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_5", myCards.[2] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("9_3", myHandCardPositions.[1] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("9_4", myHandCardPositions.[1] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("9_5", myHandCardPositions.[2] + topDigitOffset, screenshot)
 
         screenshot.Dispose()
