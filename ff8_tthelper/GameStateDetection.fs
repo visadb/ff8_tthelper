@@ -28,7 +28,6 @@ let mutable digitNames: list<string> = []
 
 let isDigitPixel(color: Color, relDistFromEdge: float32) =
     color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
-    // was: color.GetBrightness() > 0.55f && color.GetSaturation() < 0.1f
 
 let getDigitBitmap (screenshot: Bitmap) (point: Point): Bitmap =
     let maxAbsDistFromEdge = (float32)(min digitWidth digitHeight) / 2.0f
@@ -55,23 +54,6 @@ let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
 
     (float)absDifference / (float)maxAbsDifference
 
-let printDiffs() =
-    let mutable diffs = []
-
-    for i in 0 .. digitNames.Length-1 do
-        for j in i+1 .. digitNames.Length-1 do
-            let (n1, n2) = (List.nth digitNames i, List.nth digitNames j)
-            let diff = bitmapDifference(new Bitmap(imageDir + "digit"+n1+".png"), new Bitmap(imageDir + "digit"+n2+".png"))
-            diffs <- (diff, n1.[0] = n2.[0]) :: diffs
-
-            printfn "DIFFERENCE B/W %s & %s: %f" n1 n2 diff
-        done
-        printfn ""
-    done
-
-    printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
-    printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
-
 let getModelDigitBitmapFromDisk(digit: int): Bitmap =
     new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
 
@@ -83,31 +65,37 @@ let readDigitValue digitBitmap: int =
         |> List.minBy snd
         |> fst
 
+// TODO: Return None when card not found
 let readCard screenshot (cardTopLeftCorner: Point): Card option =
-    let powers: int[] = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) >> (getDigitBitmap screenshot) >> readDigitValue)
-    Some { powers = powers ; powerModifier = 0; element = None }
+    let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
+                                                >> (getDigitBitmap screenshot)
+                                                >> readDigitValue)
+    Some { powers = powers ; powerModifier = 0 ; element = None }
 
 let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) = match selectedIndex with
-                                            | Some(index) when i = index -> cardPos + cardSelectionOffset
-                                            | _ -> cardPos
+                                                    | Some(index) when i = index -> cardPos + cardSelectionOffset
+                                                    | _ -> cardPos
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
 let readGameState screenshot = 
-    let turnPhase = MyCardSelection 0
+    let turnPhase = MyCardSelection 0 // TODO
+    let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
+    let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
+    let playGrid = array2D [] // TODO
     match turnPhase with
         | OpponentsTurn -> { turnPhase = turnPhase
                              opponentsHand = [| |]
                              myHand = [| |]
-                             playGrid = array2D [] }
+                             playGrid = playGrid }
         | MyCardSelection i -> { turnPhase = turnPhase
-                                 opponentsHand = readHand screenshot opponentHandCardPositions Option.None
-                                 myHand = readHand screenshot myHandCardPositions (Some i)
-                                 playGrid = array2D [] }
-        | MyTargetSelection (_, _) -> { turnPhase = turnPhase
-                                        opponentsHand = readHand screenshot opponentHandCardPositions Option.None
-                                        myHand = readHand screenshot myHandCardPositions Option.None
-                                        playGrid = array2D [] }
+                                 opponentsHand = opponentsHand.Force()
+                                 myHand = myHandWithSelectedCardIndex (Some i)
+                                 playGrid = playGrid }
+        | MyTargetSelection _ -> { turnPhase = turnPhase
+                                   opponentsHand = opponentsHand.Force()
+                                   myHand = myHandWithSelectedCardIndex Option.None
+                                   playGrid = playGrid }
 
     
 module Bootstrap =
@@ -172,3 +160,20 @@ module Bootstrap =
         saveDigitFileFromScreenshot("9_5", myHandCardPositions.[2] + topDigitOffset, screenshot)
 
         screenshot.Dispose()
+
+    let printDiffs() =
+        let mutable diffs = []
+
+        for i in 0 .. digitNames.Length-1 do
+            for j in i+1 .. digitNames.Length-1 do
+                let (n1, n2) = (List.nth digitNames i, List.nth digitNames j)
+                let diff = bitmapDifference(new Bitmap(imageDir + "digit"+n1+".png"), new Bitmap(imageDir + "digit"+n2+".png"))
+                diffs <- (diff, n1.[0] = n2.[0]) :: diffs
+
+                printfn "DIFFERENCE B/W %s & %s: %f" n1 n2 diff
+            done
+            printfn ""
+        done
+
+        printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
+        printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)

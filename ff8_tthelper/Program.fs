@@ -8,7 +8,6 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-
     //Bootstrap.saveDigitFilesFromExampleScreenshot()
     //printDiffs()
 
