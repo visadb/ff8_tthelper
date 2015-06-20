@@ -8,14 +8,12 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-    //Bootstrap.saveDigitFilesFromExampleScreenshot()
+    //Bootstrap.saveCursorFromExampleScreenshot()
+    //Bootstrap.saveSelectionCursorsFromExampleScreenshot()
     //printDiffs()
 
-
     let screenshot = new Bitmap(imageDir + "example_screenshot_2.jpg")
-
     printfn "%O" <| readGameState screenshot
-
     screenshot.Dispose()
 
     sw.Stop()

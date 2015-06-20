@@ -6,42 +6,53 @@ open DomainTypes
 
 let imageDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\images\"
 
-let myHandPosition = Point(1381, 93)
-let opponentHandPosition = Point(331, 94)
-let opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
-let myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
-let cardSelectionOffset = Size(-45, 0)
-let (fieldCardXOffsets, fieldCardYOffsets) = ([| 0 ; 240 ; 480 |], [| 0 ; 308 ; 617 |])
+let private myHandPosition = Point(1381, 93)
+let private opponentHandPosition = Point(331, 94)
+let private opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
+let private myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
+let private cardSelectionOffset = Size(-45, 0)
+let (private fieldCardXOffsets, private fieldCardYOffsets) = ([| 0 ; 240 ; 480 |], [| 0 ; 308 ; 617 |])
 
-let (digitWidth, digitHeight) = (26, 36)
-let topDigitOffset = Size(15, 0)
-let leftDigitOffset = Size(0, 39)
-let rightDigitOffset = Size(30, 39)
-let bottomDigitOffset = Size(15, 78)
-let cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
+let private digitSize = Size(26, 36)
+let private topDigitOffset = Size(15, 0)
+let private leftDigitOffset = Size(0, 39)
+let private rightDigitOffset = Size(30, 39)
+let private bottomDigitOffset = Size(15, 78)
+let private cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
 
-let opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
-let myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
-let playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffsets.[i], 93 + fieldCardYOffsets.[j]) ] ]
+let private opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
+let private myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
+let private playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffsets.[i], 93 + fieldCardYOffsets.[j]) ] ]
 
-let isDigitPixel(color: Color, relDistFromEdge: float32) =
-    color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
+let private cursorSize = Size(67, 46)
+let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Array.map (fun y -> Point(1260, y))
 
-let getDigitBitmap (screenshot: Bitmap) (point: Point): Bitmap =
-    let maxAbsDistFromEdge = (float32)(min digitWidth digitHeight) / 2.0f
-    let relDistanceFromEdge x y = (float32)(List.min [ x+1 ; y+1 ; digitWidth-x ; digitHeight-y ]) / maxAbsDistFromEdge
 
-    let subImage = new Bitmap(digitWidth, digitHeight, screenshot.PixelFormat)
-    seq { for y in 0 .. digitHeight-1 do
-            for x in 0 .. digitWidth-1 -> (x, y, screenshot.GetPixel(point.X + x, point.Y + y)) }
-        |> Seq.filter (fun (x, y, color) -> isDigitPixel(color, relDistanceFromEdge x y))
+let private getSignificantBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> float32 -> bool) =
+    let maxAbsDistFromEdge = (float32)(min rect.Width rect.Height) / 2.0f
+    let relDistanceFromEdge x y = (float32)(List.min [ x+1 ; y+1 ; rect.Width-x ; rect.Height-y ]) / maxAbsDistFromEdge
+
+    let subImage = new Bitmap(rect.Width, rect.Height, screenshot.PixelFormat)
+    seq { for y in 0 .. rect.Height-1 do
+            for x in 0 .. rect.Width-1 -> (x, y, screenshot.GetPixel(rect.X + x, rect.Y + y)) }
+        |> Seq.filter (fun (x, y, color) -> pixelFilter color <| relDistanceFromEdge x y)
         |> Seq.iter subImage.SetPixel
     subImage
+    
+let private getDigitBitmap screenshot point =
+    let isDigitPixel (color: Color) (relDistFromEdge: float32) =
+        color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
+    getSignificantBitmap screenshot (Rectangle(point, digitSize)) isDigitPixel
 
-let pixelAbsDiff(pixel1: Color, pixel2: Color): int =
+let private getCursorBitmap screenshot point =
+    let isCursorPixel (color: Color) (relDistFromEdge: float32) =
+        color.GetBrightness() > (0.4f + ((1.00f-0.4f)*(1.0f-relDistFromEdge**0.40f))) && color.GetSaturation() < 0.08f
+    getSignificantBitmap screenshot (Rectangle(point, cursorSize)) isCursorPixel
+
+let private pixelAbsDiff(pixel1: Color, pixel2: Color): int =
     abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel2.B)
 
-let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
+let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     let maxAbsDifference = bitmap1.Width * bitmap1.Height * 255 * 3
     let pixelCoords = seq { for y in 0..(bitmap1.Height-1) do
                                 for x in 0..(bitmap1.Width-1) do
@@ -52,14 +63,14 @@ let bitmapDifference(bitmap1: Bitmap, bitmap2: Bitmap): float =
 
     (float)absDifference / (float)maxAbsDifference
 
-let getModelDigitBitmapFromDisk(digit: int): Bitmap =
+let private getModelDigitBitmapFromDisk(digit: int): Bitmap =
     new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
 
-let modelDigits: Bitmap list = [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
+let private modelDigits: Bitmap list = [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
 
-let readDigitValue digitBitmap: int option =
+let private readDigitValue digitBitmap: int option =
     let candidatesWithDiffs = modelDigits 
-                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference(digitBitmap, modelDigit)))
+                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
                                 |> List.filter (snd >> ((>) 0.06))
 
     if List.isEmpty candidatesWithDiffs then
@@ -67,7 +78,13 @@ let readDigitValue digitBitmap: int option =
     else
         Option.Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let readCard screenshot (cardTopLeftCorner: Point): Card option =
+let private modelCursor = new Bitmap(imageDir + "cursor.png")
+
+let private isCursorAtPoint screenshot point: bool =
+    let diff = bitmapDifference modelCursor (getCursorBitmap screenshot point)
+    diff < 0.10
+
+let private readCard screenshot (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
@@ -76,29 +93,40 @@ let readCard screenshot (cardTopLeftCorner: Point): Card option =
     else
         Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None }
 
-let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
+let private readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) =
         match selectedIndex with
             | Some(index) when i = index -> cardPos + cardSelectionOffset
             | _ -> cardPos
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
-let readPlayGrid screenshot: PlayGrid =
+let private readPlayGrid screenshot: PlayGrid =
     let slots =
         [ for y in 0..2 ->
             [ for x in 0..2 -> readCard screenshot playGridCardPositions.[x,y] ]
                 |> List.map (fun oc -> match oc with Some(c) -> Full c | Option.None -> Empty None) ]
     { slots = array2D slots }
 
+let private readTurnPhase screenshot =
+    let cardSelectionIndex =
+        cardSelectionCursorPositions
+            |> Array.mapi (fun i x -> (i,x))
+            |> Array.tryFind (fun (i,cursorPos) -> isCursorAtPoint screenshot cursorPos)
+            |> Option.map fst
+
+    match cardSelectionIndex with
+        | Some i -> MyCardSelection i
+        | Option.None -> MyTargetSelection (0, (0,0)) // TODO
+
 let readGameState screenshot = 
-    let turnPhase = MyCardSelection 0
+    let turnPhase = readTurnPhase screenshot
     let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
     let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
     let playGrid = lazy readPlayGrid screenshot
     match turnPhase with
         | OpponentsTurn -> { turnPhase = turnPhase
-                             opponentsHand = [| |]
-                             myHand = [| |]
+                             opponentsHand = Array.empty
+                             myHand = Array.empty
                              playGrid = { slots = array2D [] } }
         | MyCardSelection i -> { turnPhase = turnPhase
                                  opponentsHand = opponentsHand.Force()
@@ -181,7 +209,7 @@ module Bootstrap =
         for i in 0 .. digitNames.Length-1 do
             for j in i+1 .. digitNames.Length-1 do
                 let (n1, n2) = (List.nth digitNames i, List.nth digitNames j)
-                let diff = bitmapDifference(new Bitmap(imageDir + "digit"+n1+".png"), new Bitmap(imageDir + "digit"+n2+".png"))
+                let diff = bitmapDifference (new Bitmap(imageDir + "digit"+n1+".png")) (new Bitmap(imageDir + "digit"+n2+".png"))
                 diffs <- (diff, n1.[0] = n2.[0]) :: diffs
 
                 printfn "DIFFERENCE B/W %s & %s: %f" n1 n2 diff
@@ -191,3 +219,23 @@ module Bootstrap =
 
         printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
         printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
+
+    let saveCursorFromExampleScreenshot() =
+        let screenshot = new Bitmap(imageDir + "example_screenshot_1.jpg")
+
+        let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
+        cursorBitmap.Save(imageDir + "cursor.png", Imaging.ImageFormat.Png)
+        cursorBitmap.Dispose()
+
+        screenshot.Dispose()
+
+    let saveSelectionCursorsFromExampleScreenshot() =
+        let screenshot = new Bitmap(imageDir + "example_screenshot_2.jpg")
+
+        cardSelectionCursorPositions
+            |> Array.iteri (fun i pos ->
+                let cursorBitmap = getCursorBitmap screenshot pos
+                cursorBitmap.Save(imageDir + "cursor_"+i.ToString()+".png", Imaging.ImageFormat.Png)
+                cursorBitmap.Dispose())
+
+        screenshot.Dispose()

@@ -1,6 +1,8 @@
 ﻿module DomainTypes
 
-type TurnPhase = MyCardSelection of int | MyTargetSelection of int*int | OpponentsTurn
+type HandIndex = int
+type GridCoords = int*int
+type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
 
 type Element = Earth | Fire | Holy | Ice | Thunder | Water | Wind | None
 type Card =
