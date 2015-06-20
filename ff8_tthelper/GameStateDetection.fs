@@ -91,7 +91,7 @@ let private readCard screenshot (cardTopLeftCorner: Point): Card option =
     if Array.exists Option.isNone powers then
         Option.None
     else
-        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None }
+        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None ; owner = Me }
 
 let private readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) =

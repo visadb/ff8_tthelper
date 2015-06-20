@@ -5,11 +5,12 @@ type GridCoords = int*int
 type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
 
 type Element = Earth | Fire | Holy | Ice | Thunder | Water | Wind | None
+type Player = Me | Opponent
 type Card =
-    { powers: int[] ; powerModifier: int ; element: Element}
+    { powers: int[] ; powerModifier: int ; element: Element ; owner: Player}
     override x.ToString() =
         let powersString = x.powers |> Array.map string |> String.concat ","
-        sprintf "Card %s %+d %A" powersString x.powerModifier x.element
+        sprintf "Card %s %+d %A %A" powersString x.powerModifier x.element x.owner
 
 type PlayGridSlot = Full of Card | Empty of Element
 let playGridSlotToString slot =

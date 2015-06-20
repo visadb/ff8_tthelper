@@ -7,7 +7,7 @@ open System.Drawing
 open DomainTypes
 open GameStateDetection
 
-let card powers = Some { powers = List.toArray powers ; powerModifier = 0; element = None}
+let card powers = Some { powers = List.toArray powers ; powerModifier = 0; element = None; owner = Me}
 let slot powers = Full (card powers).Value
 let emptySlot = PlayGridSlot.Empty None
 
