@@ -11,7 +11,7 @@ let opponentHandPosition = Point(331, 94)
 let opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
 let myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
 let cardSelectionOffset = Size(-45, 0)
-let (fieldCardXOffset, fieldCardYOffset) = (0, 0)
+let (fieldCardXOffset, fieldCardYOffset) = (240, 308)
 
 let (digitWidth, digitHeight) = (26, 36)
 let topDigitOffset = Size(15, 0)
@@ -85,24 +85,31 @@ let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int opt
             | _ -> cardPos
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
+let readPlayGrid screenshot: PlayGrid =
+    let slots =
+        [ for y in 0..2 ->
+            [ for x in 0..2 -> readCard screenshot playGridCardPositions.[x,y] ]
+                |> List.map (fun oc -> match oc with Some(c) -> Full c | Option.None -> Empty None) ]
+    { slots = array2D slots }
+
 let readGameState screenshot = 
     let turnPhase = MyCardSelection 0 // TODO
     let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
     let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
-    let playGrid = array2D [] // TODO
+    let playGrid = lazy readPlayGrid screenshot
     match turnPhase with
         | OpponentsTurn -> { turnPhase = turnPhase
                              opponentsHand = [| |]
                              myHand = [| |]
-                             playGrid = playGrid }
+                             playGrid = { slots = array2D [] } }
         | MyCardSelection i -> { turnPhase = turnPhase
                                  opponentsHand = opponentsHand.Force()
                                  myHand = myHandWithSelectedCardIndex (Some i)
-                                 playGrid = playGrid }
+                                 playGrid = playGrid.Force() }
         | MyTargetSelection _ -> { turnPhase = turnPhase
                                    opponentsHand = opponentsHand.Force()
                                    myHand = myHandWithSelectedCardIndex Option.None
-                                   playGrid = playGrid }
+                                   playGrid = playGrid.Force() }
 
     
 module Bootstrap =
