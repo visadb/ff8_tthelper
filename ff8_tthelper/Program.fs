@@ -11,8 +11,13 @@ let main argv =
     //Bootstrap.saveDigitFilesFromExampleScreenshot()
     //printDiffs()
 
+
     let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
-    printfn "%A" <| readGameState screenshot
+
+    let lol = readDigitValue (getDigitBitmap screenshot (opponentHandCardPositions.[0] + topDigitOffset))
+
+    printfn "%O" <| readGameState screenshot
+
     screenshot.Dispose()
 
     sw.Stop()

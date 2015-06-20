@@ -59,23 +59,30 @@ let getModelDigitBitmapFromDisk(digit: int): Bitmap =
 
 let modelDigits: Bitmap list = [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
 
-let readDigitValue digitBitmap: int =
-    modelDigits 
-        |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference(digitBitmap, modelDigit)))
-        |> List.minBy snd
-        |> fst
+let readDigitValue digitBitmap: int option =
+    let candidatesWithDiffs = modelDigits 
+                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference(digitBitmap, modelDigit)))
+                                |> List.filter (snd >> ((>) 0.06))
 
-// TODO: Return None when card not found
+    if List.isEmpty candidatesWithDiffs then
+        Option.None
+    else
+        Option.Some (candidatesWithDiffs |> List.minBy snd |> fst)
+
 let readCard screenshot (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
-    Some { powers = powers ; powerModifier = 0 ; element = None }
+    if Array.exists Option.isNone powers then
+        Option.None
+    else
+        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None }
 
 let readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
-    let shiftCardIfSelected i (cardPos: Point) = match selectedIndex with
-                                                    | Some(index) when i = index -> cardPos + cardSelectionOffset
-                                                    | _ -> cardPos
+    let shiftCardIfSelected i (cardPos: Point) =
+        match selectedIndex with
+            | Some(index) when i = index -> cardPos + cardSelectionOffset
+            | _ -> cardPos
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
 let readGameState screenshot = 
