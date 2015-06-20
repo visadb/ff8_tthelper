@@ -12,9 +12,7 @@ let main argv =
     //printDiffs()
 
 
-    let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
-
-    let lol = readDigitValue (getDigitBitmap screenshot (opponentHandCardPositions.[0] + topDigitOffset))
+    let screenshot = new Bitmap(imageDir + "example_screenshot_2.jpg")
 
     printfn "%O" <| readGameState screenshot
 

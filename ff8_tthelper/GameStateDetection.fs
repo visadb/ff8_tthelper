@@ -11,7 +11,7 @@ let opponentHandPosition = Point(331, 94)
 let opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
 let myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
 let cardSelectionOffset = Size(-45, 0)
-let (fieldCardXOffset, fieldCardYOffset) = (240, 308)
+let (fieldCardXOffsets, fieldCardYOffsets) = ([| 0 ; 240 ; 480 |], [| 0 ; 308 ; 617 |])
 
 let (digitWidth, digitHeight) = (26, 36)
 let topDigitOffset = Size(15, 0)
@@ -22,9 +22,7 @@ let cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; 
 
 let opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
-let playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffset*i, 93 + fieldCardYOffset*j) ] ]
-
-let mutable digitNames: list<string> = []
+let playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffsets.[i], 93 + fieldCardYOffsets.[j]) ] ]
 
 let isDigitPixel(color: Color, relDistFromEdge: float32) =
     color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
@@ -93,7 +91,7 @@ let readPlayGrid screenshot: PlayGrid =
     { slots = array2D slots }
 
 let readGameState screenshot = 
-    let turnPhase = MyCardSelection 0 // TODO
+    let turnPhase = MyCardSelection 0
     let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
     let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
     let playGrid = lazy readPlayGrid screenshot
@@ -113,6 +111,8 @@ let readGameState screenshot =
 
     
 module Bootstrap =
+    let mutable digitNames: list<string> = []
+
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
@@ -120,7 +120,7 @@ module Bootstrap =
         digitNames <- digitNames @ [digitName]
 
     let saveDigitFilesFromExampleScreenshot() =
-        let screenshot = new Bitmap(imageDir + "example_screenshot.jpg")
+        let screenshot = new Bitmap(imageDir + "example_screenshot_1.jpg")
 
         let myCard0Selected = myHandCardPositions.[0] + cardSelectionOffset
 
