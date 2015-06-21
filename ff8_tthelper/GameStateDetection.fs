@@ -5,6 +5,7 @@ open System.Drawing
 open DomainTypes
 
 let imageDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\images\"
+let screenshotDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\screenshots\"
 
 let private myHandPosition = Point(1381, 93)
 let private opponentHandPosition = Point(331, 94)
@@ -26,7 +27,8 @@ let private playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -
 
 let private cursorSize = Size(67, 46)
 let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Array.map (fun y -> Point(1260, y))
-
+let private targetSelectionCursorPositions =
+    array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
 let private getSignificantBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> float32 -> bool) =
     let maxAbsDistFromEdge = (float32)(min rect.Width rect.Height) / 2.0f
@@ -107,18 +109,24 @@ let private readPlayGrid screenshot: PlayGrid =
                 |> List.map (fun oc -> match oc with Some(c) -> Full c | Option.None -> Empty None) ]
     { slots = array2D slots }
 
-let private readTurnPhase screenshot =
-    let cardSelectionIndex =
-        cardSelectionCursorPositions
-            |> Array.mapi (fun i x -> (i,x))
-            |> Array.tryFind (fun (i,cursorPos) -> isCursorAtPoint screenshot cursorPos)
-            |> Option.map fst
+let private swap f a b = f b a
 
-    match cardSelectionIndex with
-        | Some i -> MyCardSelection i
-        | Option.None -> MyTargetSelection (0, (0,0)) // TODO
+let private readTurnPhase screenshot =
+    let selectedCardIndex =
+        myHandCardPositions
+            |> Array.map ((swap (+)) cardSelectionOffset)
+            |> Array.tryFindIndex (fun pos -> (readCard screenshot pos).IsSome)
+    let targetSelectionPosition =
+        lazy ([ for row in 0..2 do for col in 0..2 -> (col, row) ]
+                |> List.tryFind (fun (col, row) -> isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
+
+    match selectedCardIndex with
+        | Option.None -> OpponentsTurn
+        | Some i when isCursorAtPoint screenshot cardSelectionCursorPositions.[i] -> MyCardSelection i
+        | Some i -> MyTargetSelection (i, targetSelectionPosition.Force().Value)
 
 let readGameState screenshot = 
+    // TODO: card owner, card powerModifier, card element, empty slot element
     let turnPhase = readTurnPhase screenshot
     let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
     let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
@@ -132,10 +140,10 @@ let readGameState screenshot =
                                  opponentsHand = opponentsHand.Force()
                                  myHand = myHandWithSelectedCardIndex (Some i)
                                  playGrid = playGrid.Force() }
-        | MyTargetSelection _ -> { turnPhase = turnPhase
-                                   opponentsHand = opponentsHand.Force()
-                                   myHand = myHandWithSelectedCardIndex Option.None
-                                   playGrid = playGrid.Force() }
+        | MyTargetSelection (i, _) -> { turnPhase = turnPhase
+                                        opponentsHand = opponentsHand.Force()
+                                        myHand = myHandWithSelectedCardIndex (Some i)
+                                        playGrid = playGrid.Force() }
 
     
 module Bootstrap =
@@ -148,7 +156,7 @@ module Bootstrap =
         digitNames <- digitNames @ [digitName]
 
     let saveDigitFilesFromExampleScreenshot() =
-        let screenshot = new Bitmap(imageDir + "example_screenshot_1.jpg")
+        let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
 
         let myCard0Selected = myHandCardPositions.[0] + cardSelectionOffset
 
@@ -221,7 +229,7 @@ module Bootstrap =
         printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
 
     let saveCursorFromExampleScreenshot() =
-        let screenshot = new Bitmap(imageDir + "example_screenshot_1.jpg")
+        let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
         cursorBitmap.Save(imageDir + "cursor.png", Imaging.ImageFormat.Png)
@@ -230,7 +238,7 @@ module Bootstrap =
         screenshot.Dispose()
 
     let saveSelectionCursorsFromExampleScreenshot() =
-        let screenshot = new Bitmap(imageDir + "example_screenshot_2.jpg")
+        let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_2.jpg")
 
         cardSelectionCursorPositions
             |> Array.iteri (fun i pos ->

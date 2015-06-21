@@ -12,7 +12,7 @@ let main argv =
     //Bootstrap.saveSelectionCursorsFromExampleScreenshot()
     //printDiffs()
 
-    let screenshot = new Bitmap(imageDir + "example_screenshot_2.jpg")
+    let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_2.jpg")
     printfn "%O" <| readGameState screenshot
     screenshot.Dispose()
 
