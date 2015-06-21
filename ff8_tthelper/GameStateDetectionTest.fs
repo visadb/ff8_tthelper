@@ -41,9 +41,9 @@ let targetSelectionGameStates =
                                             [ emptySlot; emptySlot; emptySlot ] ])}
         }
     [ for y in 0..2 do
-        for x in 0..2 do
-            yield (sprintf @"in-game\target_selection_%d_%d.jpg" x y,
-                   { baseGameState with turnPhase = MyTargetSelection (4, (x,y)) })]
+        for x in 0..2 ->
+            (sprintf @"in-game\target_selection_%d_%d.jpg" x y,
+               { baseGameState with turnPhase = MyTargetSelection (4, (x,y)) })]
 
 let gameStateReadCorrectly (screenshotFile, expectedGameState): unit =
     let screenshot = new Bitmap(screenshotDir + screenshotFile)

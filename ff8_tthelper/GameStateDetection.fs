@@ -23,7 +23,7 @@ let private cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitO
 
 let private opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let private myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
-let private playGridCardPositions = array2D [ for i in 0..2 -> [ for j in 0..2 -> Point(616 + fieldCardXOffsets.[i], 93 + fieldCardYOffsets.[j]) ] ]
+let private playGridCardPositions = array2D [ for row in 0..2 -> [ for col in 0..2 -> Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) ] ]
 
 let private cursorSize = Size(67, 46)
 let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Array.map (fun y -> Point(1260, y))
@@ -103,11 +103,10 @@ let private readHand screenshot (handCardBasePositions: Point[]) (selectedIndex:
     handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
 
 let private readPlayGrid screenshot: PlayGrid =
-    let slots =
-        [ for y in 0..2 ->
-            [ for x in 0..2 -> readCard screenshot playGridCardPositions.[x,y] ]
-                |> List.map (fun oc -> match oc with Some(c) -> Full c | Option.None -> Empty None) ]
-    { slots = array2D slots }
+    { slots =
+        playGridCardPositions
+            |> Array2D.map ((readCard screenshot) >> (fun oc ->
+                    match oc with Some(c) -> Full c | Option.None -> Empty None)) }
 
 let private swap f a b = f b a
 
