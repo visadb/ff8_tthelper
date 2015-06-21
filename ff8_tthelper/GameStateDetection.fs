@@ -86,26 +86,60 @@ let private isCursorAtPoint screenshot point: bool =
     let diff = bitmapDifference modelCursor (getCursorBitmap screenshot point)
     diff < 0.10
 
-let private readCard screenshot (cardTopLeftCorner: Point): Card option =
+let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
+    let testArea = Rectangle(cardPos.X-1, cardPos.Y+3, 200, 15)
+    let meColorBounds = Color.FromArgb(178, 209, 242), Color.FromArgb(188, 219, 255)
+    let opColorBounds = Color.FromArgb(241, 176, 208), Color.FromArgb(253, 187, 220)
+
+    let pixelBetween (bounds: Color*Color) (pixel: Color) =
+        let isBetween =
+                pixel.R >= (fst bounds).R && pixel.R <= (snd bounds).R
+             && pixel.G >= (fst bounds).G && pixel.G <= (snd bounds).G
+             && pixel.B >= (fst bounds).B && pixel.B <= (snd bounds).B
+        if isBetween then 1 else 0
+
+    let isMyPixel = pixelBetween meColorBounds
+    let isOpPixel = pixelBetween opColorBounds
+
+    let incrementCoords (x,y) =
+        if testArea.Contains(x, y+1) then (x, y+1)
+        else (x+1, testArea.Y)
+
+    let pixelCounts = Seq.unfold (fun ((x,y),(me,op)) ->
+            if (max me op) >= 50 || (x,y) = (testArea.X+testArea.Width-1, testArea.Y+testArea.Height-1) then Option.None
+            else let pixel = screenshot.GetPixel(x,y)
+                 let counts = (me + isMyPixel pixel, op + isOpPixel pixel)
+                 (Some (counts, (incrementCoords (x,y), counts)))) ((testArea.X, testArea.Y), (0, 0))
+                            |> Seq.last
+
+    match pixelCounts with
+        | (my, op) when my > op && my > 15 -> Me
+        | (my, op) when my < op && op > 15 -> Op
+        | _ -> raise <| GameStateDetectionError("Unable to determine card owner")
+
+let private readCard screenshot (owner: Player option) (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
     if Array.exists Option.isNone powers then
         Option.None
     else
-        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None ; owner = Me }
+        let cardOwner = if owner.IsSome then owner.Value
+                        else readCardOwner screenshot cardTopLeftCorner
+                            
+        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None ; owner = cardOwner }
 
-let private readHand screenshot (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
+let private readHand screenshot owner (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) =
         match selectedIndex with
             | Some(index) when i = index -> cardPos + cardSelectionOffset
             | _ -> cardPos
-    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot)
+    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot (Some owner))
 
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
         playGridCardPositions
-            |> Array2D.map ((readCard screenshot) >> (fun oc ->
+            |> Array2D.map ((readCard screenshot Option.None) >> (fun oc ->
                     match oc with Some(c) -> Full c | Option.None -> Empty None)) }
 
 let private swap f a b = f b a
@@ -114,7 +148,7 @@ let private readTurnPhase screenshot =
     let selectedCardIndex =
         myHandCardPositions
             |> Array.map ((swap (+)) cardSelectionOffset)
-            |> Array.tryFindIndex (fun pos -> (readCard screenshot pos).IsSome)
+            |> Array.tryFindIndex (fun pos -> (readCard screenshot (Some Me) pos).IsSome)
     let targetSelectionPosition =
         lazy ([ for row in 0..2 do for col in 0..2 -> (col, row) ]
                 |> List.tryFind (fun (col, row) -> isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
@@ -125,10 +159,10 @@ let private readTurnPhase screenshot =
         | Some i -> MyTargetSelection (i, targetSelectionPosition.Force().Value)
 
 let readGameState screenshot = 
-    // TODO: card owner, card powerModifier, card element, empty slot element
+    // TODO: card powerModifier, card element, empty slot element
     let turnPhase = readTurnPhase screenshot
-    let opponentsHand = lazy readHand screenshot opponentHandCardPositions Option.None
-    let myHandWithSelectedCardIndex = readHand screenshot myHandCardPositions
+    let opponentsHand = lazy readHand screenshot Op opponentHandCardPositions Option.None
+    let myHandWithSelectedCardIndex = readHand screenshot Me myHandCardPositions
     let playGrid = lazy readPlayGrid screenshot
     match turnPhase with
         | OpponentsTurn -> { turnPhase = turnPhase

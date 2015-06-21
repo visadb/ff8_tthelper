@@ -1,11 +1,13 @@
 ﻿module DomainTypes
 
+exception GameStateDetectionError of string
+
 type HandIndex = int
 type GridCoords = int*int
 type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
 
 type Element = Earth | Fire | Holy | Ice | Thunder | Water | Wind | None
-type Player = Me | Opponent
+type Player = Me | Op
 type Card =
     { powers: int[] ; powerModifier: int ; element: Element ; owner: Player}
     override x.ToString() =
@@ -16,7 +18,7 @@ type PlayGridSlot = Full of Card | Empty of Element
 let playGridSlotToString slot =
     match slot with
         | Full c -> c.ToString()
-        | Empty e -> sprintf "Empty PlayGridSlot (%A)" e
+        | Empty e -> sprintf "Empty GridSlot (%A)" e
 
 type PlayGrid =
     { slots: PlayGridSlot[,] }
