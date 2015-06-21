@@ -21,6 +21,9 @@ let private rightDigitOffset = Size(30, 39)
 let private bottomDigitOffset = Size(15, 78)
 let private cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
 
+let private powerModifierOffset = Size(66, 138)
+let private powerModifierSize = Size(45, 20)
+
 let private opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let private myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
 let private playGridCardPositions = array2D [ for row in 0..2 -> [ for col in 0..2 -> Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) ] ]
@@ -41,15 +44,23 @@ let private getSignificantBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFi
         |> Seq.iter subImage.SetPixel
     subImage
     
+let private isDigitPixel (color: Color) (relDistFromEdge: float32) =
+    color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
 let private getDigitBitmap screenshot point =
-    let isDigitPixel (color: Color) (relDistFromEdge: float32) =
-        color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
     getSignificantBitmap screenshot (Rectangle(point, digitSize)) isDigitPixel
 
 let private getCursorBitmap screenshot point =
     let isCursorPixel (color: Color) (relDistFromEdge: float32) =
         color.GetBrightness() > (0.4f + ((1.00f-0.4f)*(1.0f-relDistFromEdge**0.40f))) && color.GetSaturation() < 0.08f
     getSignificantBitmap screenshot (Rectangle(point, cursorSize)) isCursorPixel
+
+let private getPowerModifierBitmap screenshot point =
+    let isPowerModifierPixel (color: Color) (relDistFromEdge: float32) =
+        let minbr = 200 - (int)(40.0f*relDistFromEdge**0.5f)
+        let maxdiff = 10
+        let (r, g, b) = ((int)color.R, (int)color.G, (int)color.B)
+        r > minbr && g > minbr && b > minbr && abs(r - g) < maxdiff && abs(r - b) < maxdiff
+    getSignificantBitmap screenshot (Rectangle(point, powerModifierSize)) isPowerModifierPixel
 
 let private pixelAbsDiff(pixel1: Color, pixel2: Color): int =
     (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B))
@@ -280,3 +291,20 @@ module Bootstrap =
                 cursorBitmap.Dispose())
 
         screenshot.Dispose()
+
+    let savePowerModifiersFromExampleScreenshots() =
+        let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg")
+        let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
+
+        let plusBitmap = getPowerModifierBitmap screenshotWithPlus (playGridCardPositions.[0,0] + powerModifierOffset)
+        plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
+
+        let minusBitmap = getPowerModifierBitmap screenshotWithMinus (playGridCardPositions.[0,0] + powerModifierOffset)
+        minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
+
+        printfn "Power modifier bitmap difference: %f" <| bitmapDifference plusBitmap minusBitmap
+
+        plusBitmap.Dispose()
+        minusBitmap.Dispose()
+        screenshotWithPlus.Dispose()
+        screenshotWithMinus.Dispose()
