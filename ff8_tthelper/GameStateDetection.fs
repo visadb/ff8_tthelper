@@ -52,7 +52,7 @@ let private getCursorBitmap screenshot point =
     getSignificantBitmap screenshot (Rectangle(point, cursorSize)) isCursorPixel
 
 let private pixelAbsDiff(pixel1: Color, pixel2: Color): int =
-    abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel2.B)
+    (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B))
 
 let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     let maxAbsDifference = bitmap1.Width * bitmap1.Height * 255 * 3
@@ -73,7 +73,7 @@ let private modelDigits: Bitmap list = [ for i in 1..9 -> getModelDigitBitmapFro
 let private readDigitValue digitBitmap: int option =
     let candidatesWithDiffs = modelDigits 
                                 |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
-                                |> List.filter (snd >> ((>) 0.06))
+                                |> List.filter (snd >> ((>) 0.09))
 
     if List.isEmpty candidatesWithDiffs then
         Option.None
