@@ -33,12 +33,12 @@ type GameState =
     {
         turnPhase: TurnPhase
         myHand: Hand
-        opponentsHand: Hand
+        opHand: Hand
         playGrid: PlayGrid
     }
 
-    override x.ToString() = sprintf "GameState:\n  turnPhase = %A\n  myHand = %O\n  opponentsHand = %O\n  playGrid = %O" 
+    override x.ToString() = sprintf "GameState:\n  turnPhase = %A\n  myHand = %O\n  opHand = %O\n  playGrid = %O" 
                                     x.turnPhase
                                     (handToString x.myHand)
-                                    (handToString x.opponentsHand)
+                                    (handToString x.opHand)
                                     x.playGrid

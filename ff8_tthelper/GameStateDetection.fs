@@ -128,7 +128,20 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
         | (my, op) when my < op && op > 15 -> Op
         | _ -> raise <| GameStateDetectionError("Unable to determine card owner")
 
-let private readCard screenshot (owner: Player option) (cardTopLeftCorner: Point): Card option =
+let modelPowerModifierMinus = new Bitmap(imageDir + "power_modifier_minus.png")
+let modelPowerModifierPlus = new Bitmap(imageDir + "power_modifier_plus.png")
+
+let private readPowerModifier screenshot (point: Point) =
+    let actual = getPowerModifierBitmap screenshot (point + powerModifierOffset)
+
+    let minusDiff = bitmapDifference actual modelPowerModifierMinus
+    let plusDiff = lazy bitmapDifference actual modelPowerModifierPlus
+
+    if minusDiff < 0.05 then -1
+    else if plusDiff.Force() < 0.05 then +1
+         else 0
+
+let private readCard screenshot (owner: Player option) (powerModifier: int option) (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
@@ -137,20 +150,21 @@ let private readCard screenshot (owner: Player option) (cardTopLeftCorner: Point
     else
         let cardOwner = if owner.IsSome then owner.Value
                         else readCardOwner screenshot cardTopLeftCorner
-                            
-        Some { powers = powers |> Array.map Option.get ; powerModifier = 0 ; element = None ; owner = cardOwner }
+        let cardPowerModifier = if powerModifier.IsSome then powerModifier.Value
+                                else readPowerModifier screenshot cardTopLeftCorner
+        Some { powers = powers |> Array.map Option.get ; powerModifier = cardPowerModifier ; element = None ; owner = cardOwner }
 
 let private readHand screenshot owner (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) =
         match selectedIndex with
             | Some(index) when i = index -> cardPos + cardSelectionOffset
             | _ -> cardPos
-    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot (Some owner))
+    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot (Some owner) (Some 0))
 
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
         playGridCardPositions
-            |> Array2D.map ((readCard screenshot Option.None) >> (fun oc ->
+            |> Array2D.map ((readCard screenshot Option.None Option.None) >> (fun oc ->
                     match oc with Some(c) -> Full c | Option.None -> Empty None)) }
 
 let private swap f a b = f b a
@@ -159,7 +173,7 @@ let private readTurnPhase screenshot =
     let selectedCardIndex =
         myHandCardPositions
             |> Array.map ((swap (+)) cardSelectionOffset)
-            |> Array.tryFindIndex (fun pos -> (readCard screenshot (Some Me) pos).IsSome)
+            |> Array.tryFindIndex (fun pos -> (readCard screenshot (Some Me) (Some 0) pos).IsSome)
     let targetSelectionPosition =
         lazy ([ for row in 0..2 do for col in 0..2 -> (col, row) ]
                 |> List.tryFind (fun (col, row) -> isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
@@ -170,22 +184,22 @@ let private readTurnPhase screenshot =
         | Some i -> MyTargetSelection (i, targetSelectionPosition.Force().Value)
 
 let readGameState screenshot = 
-    // TODO: card powerModifier, card element, empty slot element
+    // TODO: card element, empty slot element
     let turnPhase = readTurnPhase screenshot
-    let opponentsHand = lazy readHand screenshot Op opponentHandCardPositions Option.None
+    let opHand = lazy readHand screenshot Op opponentHandCardPositions Option.None
     let myHandWithSelectedCardIndex = readHand screenshot Me myHandCardPositions
     let playGrid = lazy readPlayGrid screenshot
     match turnPhase with
         | OpponentsTurn -> { turnPhase = turnPhase
-                             opponentsHand = Array.empty
+                             opHand = Array.empty
                              myHand = Array.empty
                              playGrid = { slots = array2D [] } }
         | MyCardSelection i -> { turnPhase = turnPhase
-                                 opponentsHand = opponentsHand.Force()
+                                 opHand = opHand.Force()
                                  myHand = myHandWithSelectedCardIndex (Some i)
                                  playGrid = playGrid.Force() }
         | MyTargetSelection (i, _) -> { turnPhase = turnPhase
-                                        opponentsHand = opponentsHand.Force()
+                                        opHand = opHand.Force()
                                         myHand = myHandWithSelectedCardIndex (Some i)
                                         playGrid = playGrid.Force() }
 

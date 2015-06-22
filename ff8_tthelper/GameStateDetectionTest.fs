@@ -7,27 +7,52 @@ open System.Drawing
 open DomainTypes
 open GameStateDetection
 
-let card powers owner = Some { powers = List.toArray powers ; powerModifier = 0; element = None; owner = owner}
-let slot powers owner = Full (card powers owner).Value
+let card powers owner powerModifier = Some { powers = List.toArray powers ; powerModifier = powerModifier; element = None; owner = owner}
+let hc powers owner = card powers owner 0
+let pc powers owner powerModifier = Full (card powers owner powerModifier).Value
 let emptySlot = PlayGridSlot.Empty None
 
 
-let screenshotGameStates = [
+let screenshotGameStates = 
+    
+    [
     (@"in-game\example_screenshot_1.jpg", {
         turnPhase = MyCardSelection 0
-        myHand = [| card [9;9;5;2] Me; card [5;9;1;9] Me; card [9;8;6;2] Me; card [1;7;8;7] Me; card [8;4;8;5] Me |]
-        opponentsHand = [| Option.None; card [4;7;6;2] Op; card [2;7;3;6] Op; card [6;5;5;4] Op; card [3;6;7;3] Op |]
-        playGrid = { slots = (array2D [ [ slot [1;7;6;4] Op; emptySlot; emptySlot ]
+        myHand = [| hc [9;9;5;2] Me; hc [5;9;1;9] Me; hc [9;8;6;2] Me; hc [1;7;8;7] Me; hc [8;4;8;5] Me |]
+        opHand = [| Option.None;     hc [4;7;6;2] Op; hc [2;7;3;6] Op; hc [6;5;5;4] Op; hc [3;6;7;3] Op |]
+        playGrid = { slots = (array2D [ [ pc [1;7;6;4] Op 0; emptySlot; emptySlot ]
                                         [ emptySlot;         emptySlot; emptySlot ]
                                         [ emptySlot;         emptySlot; emptySlot ] ])}
         })
     (@"in-game\example_screenshot_2.jpg", {
         turnPhase = MyCardSelection 4
-        myHand = [| Option.None; Option.None; Option.None; Option.None; card [9;9;5;2] Me |]
-        opponentsHand = [| Option.None; Option.None; Option.None; Option.None; card [1;5;3;3] Op |]
-        playGrid = { slots = (array2D [ [ slot [5;4;5;7] Op; slot [1;7;8;7] Me; slot [1;7;6;4] Op ]
-                                        [ slot [7;8;7;2] Me; slot [4;7;6;2] Me; slot [5;9;1;9] Me ]
-                                        [ slot [8;4;8;5] Me; emptySlot;         slot [9;8;6;2] Me ] ])}
+        myHand = [| Option.None; Option.None; Option.None; Option.None; hc [9;9;5;2] Me |]
+        opHand = [| Option.None; Option.None; Option.None; Option.None; hc [1;5;3;3] Op |]
+        playGrid = { slots = (array2D [ [ pc [5;4;5;7] Op -1; pc [1;7;8;7] Me 0; pc [1;7;6;4] Op 0 ]
+                                        [ pc [7;8;7;2] Me  0; pc [4;7;6;2] Me 0; pc [5;9;1;9] Me 0 ]
+                                        [ pc [8;4;8;5] Me  0; emptySlot;         pc [9;8;6;2] Me 0 ] ])}
+        })
+    (@"in-game\example_screenshot_3.png", {
+        turnPhase = MyCardSelection 0
+        myHand = [| hc [9;9;5;2] Me; hc [5;9;1;9] Me; hc [9;8;6;2] Me; hc [1;7;8;7] Me; hc [8;4;8;5] Me |]
+        opHand = [| Option.None;     hc [4;7;6;2] Op; hc [2;7;3;6] Op; hc [6;5;5;4] Op; hc [3;6;7;3] Op |]
+        playGrid = { slots = (array2D [ [ pc [3;1;5;2] Op +1; emptySlot; emptySlot ]
+                                        [ emptySlot;          emptySlot; emptySlot ]
+                                        [ emptySlot;          emptySlot; emptySlot ] ])}
+        })
+    (@"in-game\elemental_-1_in_0_1.jpg", {
+        turnPhase = MyCardSelection 1
+        myHand = [| Option.None; hc [9;9;5;2] Me; hc [9;8;6;2] Me; hc [1;7;8;7] Me; hc [8;4;8;5] Me |]
+        opHand = [| Option.None; Option.None;     hc [1;1;5;4] Op; hc [6;5;8;4] Op; hc [8;2;2;8] Op |]
+        playGrid = { slots = (array2D [ [ pc [4;6;5;5] Op  0; emptySlot; pc [5;9;1;9] Me 0 ]
+                                        [ pc [5;3;1;1] Op -1; emptySlot; emptySlot         ]
+                                        [ emptySlot;          emptySlot; emptySlot         ] ])}
+        })
+    (@"in-game\elemental_+1_in_0_0.jpg", {
+        turnPhase = OpponentsTurn
+        myHand = Array.empty
+        opHand = Array.empty
+        playGrid = { slots = array2D [] }
         })
 ]
 
@@ -35,7 +60,7 @@ let targetSelectionGameStates =
     let baseGameState = {
             turnPhase = MyCardSelection 4
             myHand = (snd screenshotGameStates.[0]).myHand
-            opponentsHand = [| card [5;4;5;7] Op; card [4;7;6;2] Op; card [1;7;6;4] Op; card [7;8;7;2] Op; card [1;5;3;3] Op |]
+            opHand = [| hc [5;4;5;7] Op; hc [4;7;6;2] Op; hc [1;7;6;4] Op; hc [7;8;7;2] Op; hc [1;5;3;3] Op |]
             playGrid = { slots = (array2D [ [ emptySlot; emptySlot; emptySlot ]
                                             [ emptySlot; emptySlot; emptySlot ]
                                             [ emptySlot; emptySlot; emptySlot ] ])}
