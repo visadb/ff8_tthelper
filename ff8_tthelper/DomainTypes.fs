@@ -6,7 +6,7 @@ type HandIndex = int
 type GridCoords = int*int
 type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
 
-type Element = Earth | Fire | Holy | Ice | Thunder | Water | Wind | None
+type Element = Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | None
 type Player = Me | Op
 type Card =
     { powers: int[] ; powerModifier: int ; element: Element ; owner: Player}
