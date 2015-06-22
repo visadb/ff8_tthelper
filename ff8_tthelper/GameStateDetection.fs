@@ -54,13 +54,13 @@ let private getCursorBitmap screenshot point =
         color.GetBrightness() > (0.4f + ((1.00f-0.4f)*(1.0f-relDistFromEdge**0.40f))) && color.GetSaturation() < 0.08f
     getSignificantBitmap screenshot (Rectangle(point, cursorSize)) isCursorPixel
 
-let private getPowerModifierBitmap screenshot point =
+let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
     let isPowerModifierPixel (color: Color) (relDistFromEdge: float32) =
         let minbr = 200 - (int)(40.0f*relDistFromEdge**0.5f)
         let maxdiff = 10
         let (r, g, b) = ((int)color.R, (int)color.G, (int)color.B)
         r > minbr && g > minbr && b > minbr && abs(r - g) < maxdiff && abs(r - b) < maxdiff
-    getSignificantBitmap screenshot (Rectangle(point, powerModifierSize)) isPowerModifierPixel
+    getSignificantBitmap screenshot (Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)) isPowerModifierPixel
 
 let private pixelAbsDiff(pixel1: Color, pixel2: Color): int =
     (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B))
@@ -76,21 +76,6 @@ let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
 
     (float)absDifference / (float)maxAbsDifference
 
-let private getModelDigitBitmapFromDisk(digit: int): Bitmap =
-    new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
-
-let private modelDigits: Bitmap list = [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
-
-let private readDigitValue digitBitmap: int option =
-    let candidatesWithDiffs = modelDigits 
-                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
-                                |> List.filter (snd >> ((>) 0.09))
-
-    if List.isEmpty candidatesWithDiffs then
-        Option.None
-    else
-        Option.Some (candidatesWithDiffs |> List.minBy snd |> fst)
-
 let private modelCursor = new Bitmap(imageDir + "cursor.png")
 
 let private isCursorAtPoint screenshot point: bool =
@@ -102,15 +87,15 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
     let meColorBounds = Color.FromArgb(178, 209, 242), Color.FromArgb(188, 219, 255)
     let opColorBounds = Color.FromArgb(241, 176, 208), Color.FromArgb(253, 187, 220)
 
-    let pixelBetween (bounds: Color*Color) (pixel: Color) =
+    let isPixelBetween (bounds: Color*Color) (pixel: Color) =
         let isBetween =
                 pixel.R >= (fst bounds).R && pixel.R <= (snd bounds).R
              && pixel.G >= (fst bounds).G && pixel.G <= (snd bounds).G
              && pixel.B >= (fst bounds).B && pixel.B <= (snd bounds).B
         if isBetween then 1 else 0
 
-    let isMyPixel = pixelBetween meColorBounds
-    let isOpPixel = pixelBetween opColorBounds
+    let isMyPixel = isPixelBetween meColorBounds
+    let isOpPixel = isPixelBetween opColorBounds
 
     let incrementCoords (x,y) =
         if testArea.Contains(x, y+1) then (x, y+1)
@@ -131,8 +116,8 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
 let modelPowerModifierMinus = new Bitmap(imageDir + "power_modifier_minus.png")
 let modelPowerModifierPlus = new Bitmap(imageDir + "power_modifier_plus.png")
 
-let private readPowerModifier screenshot (point: Point) =
-    let actual = getPowerModifierBitmap screenshot (point + powerModifierOffset)
+let private readPowerModifier screenshot (cardTopLeft: Point) =
+    let actual = getPowerModifierBitmap screenshot cardTopLeft
 
     let minusDiff = bitmapDifference actual modelPowerModifierMinus
     let plusDiff = lazy bitmapDifference actual modelPowerModifierPlus
@@ -140,6 +125,21 @@ let private readPowerModifier screenshot (point: Point) =
     if minusDiff < 0.05 then -1
     else if plusDiff.Force() < 0.05 then +1
          else 0
+
+let private modelDigits: Bitmap list =
+    let getModelDigitBitmapFromDisk(digit: int): Bitmap =
+        new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
+    [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
+
+let private readDigitValue digitBitmap: int option =
+    let candidatesWithDiffs = modelDigits 
+                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
+                                |> List.filter (snd >> ((>) 0.09))
+
+    if List.isEmpty candidatesWithDiffs then
+        Option.None
+    else
+        Option.Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
 let private readCard screenshot (owner: Player option) (powerModifier: int option) (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
@@ -310,10 +310,10 @@ module Bootstrap =
         let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg")
         let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
-        let plusBitmap = getPowerModifierBitmap screenshotWithPlus (playGridCardPositions.[0,0] + powerModifierOffset)
+        let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0]
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
-        let minusBitmap = getPowerModifierBitmap screenshotWithMinus (playGridCardPositions.[0,0] + powerModifierOffset)
+        let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0]
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
         printfn "Power modifier bitmap difference: %f" <| bitmapDifference plusBitmap minusBitmap
