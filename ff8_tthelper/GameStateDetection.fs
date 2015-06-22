@@ -126,6 +126,9 @@ let private readPowerModifier screenshot (cardTopLeft: Point) =
     else if plusDiff.Force() < 0.05 then +1
          else 0
 
+let private readCardElement screenshot (cardTopLeft: Point) =
+    None
+
 let private modelDigits: Bitmap list =
     let getModelDigitBitmapFromDisk(digit: int): Bitmap =
         new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
@@ -141,7 +144,7 @@ let private readDigitValue digitBitmap: int option =
     else
         Option.Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let private readCard screenshot (owner: Player option) (powerModifier: int option) (cardTopLeftCorner: Point): Card option =
+let private readCard screenshot (owner: Player option) (powerModifier: int option) (element: Element option) (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
@@ -159,12 +162,12 @@ let private readHand screenshot owner (handCardBasePositions: Point[]) (selected
         match selectedIndex with
             | Some(index) when i = index -> cardPos + cardSelectionOffset
             | _ -> cardPos
-    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot (Some owner) (Some 0))
+    handCardBasePositions |> Array.mapi (shiftCardIfSelected) |> Array.map (readCard screenshot (Some owner) (Some 0) Option.None)
 
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
         playGridCardPositions
-            |> Array2D.map ((readCard screenshot Option.None Option.None) >> (fun oc ->
+            |> Array2D.map ((readCard screenshot Option.None Option.None (Some Element.None)) >> (fun oc ->
                     match oc with Some(c) -> Full c | Option.None -> Empty None)) }
 
 let private swap f a b = f b a
@@ -173,7 +176,7 @@ let private readTurnPhase screenshot =
     let selectedCardIndex =
         myHandCardPositions
             |> Array.map ((swap (+)) cardSelectionOffset)
-            |> Array.tryFindIndex (fun pos -> (readCard screenshot (Some Me) (Some 0) pos).IsSome)
+            |> Array.tryFindIndex (fun pos -> (readCard screenshot (Some Me) (Some 0) (Some Element.None) pos).IsSome)
     let targetSelectionPosition =
         lazy ([ for row in 0..2 do for col in 0..2 -> (col, row) ]
                 |> List.tryFind (fun (col, row) -> isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
