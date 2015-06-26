@@ -33,48 +33,39 @@ let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Arra
 let private targetSelectionCursorPositions =
     array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
-let private getSignificantBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> float32 -> bool) =
-    let maxAbsDistFromEdge = (float32)(min rect.Width rect.Height) / 2.0f
-    let relDistanceFromEdge x y = (float32)(List.min [ x+1 ; y+1 ; rect.Width-x ; rect.Height-y ]) / maxAbsDistFromEdge
-
-    let subImage = new Bitmap(rect.Width, rect.Height, screenshot.PixelFormat)
+let private getFilteredSubBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> bool) =
+    let subBitmap = new Bitmap(rect.Width, rect.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
     seq { for y in 0 .. rect.Height-1 do
             for x in 0 .. rect.Width-1 -> (x, y, screenshot.GetPixel(rect.X + x, rect.Y + y)) }
-        |> Seq.filter (fun (x, y, color) -> pixelFilter color <| relDistanceFromEdge x y)
-        |> Seq.iter subImage.SetPixel
-    subImage
+        |> Seq.iter (fun (x, y, color) -> if pixelFilter color then subBitmap.SetPixel(x,y,color) else subBitmap.SetPixel(x,y,Color.Black))
+    subBitmap
     
-let private isDigitPixel (color: Color) (relDistFromEdge: float32) =
-    color.GetBrightness() > (0.5f + ((1.00f-0.5f)*(1.0f-relDistFromEdge**0.50f))) && color.GetSaturation() < 0.1f
+let isWhitishPixel minBr maxDiff (color: Color) =
+    let r, g, b = (int)color.R, (int)color.G, (int)color.B
+    r > minBr && g > minBr && b > minBr && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
+
 let private getDigitBitmap screenshot point =
-    getSignificantBitmap screenshot (Rectangle(point, digitSize)) isDigitPixel
+    getFilteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 10
 
 let private getCursorBitmap screenshot point =
-    let isCursorPixel (color: Color) (relDistFromEdge: float32) =
-        color.GetBrightness() > (0.4f + ((1.00f-0.4f)*(1.0f-relDistFromEdge**0.40f))) && color.GetSaturation() < 0.08f
-    getSignificantBitmap screenshot (Rectangle(point, cursorSize)) isCursorPixel
+    getFilteredSubBitmap screenshot (Rectangle(point, cursorSize)) <| isWhitishPixel 200 10
 
 let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
-    let isPowerModifierPixel (color: Color) (relDistFromEdge: float32) =
-        let minbr = 200 - (int)(40.0f*relDistFromEdge**0.5f)
-        let maxdiff = 10
-        let (r, g, b) = ((int)color.R, (int)color.G, (int)color.B)
-        r > minbr && g > minbr && b > minbr && abs(r - g) < maxdiff && abs(r - b) < maxdiff
-    getSignificantBitmap screenshot (Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)) isPowerModifierPixel
-
-let private pixelAbsDiff(pixel1: Color, pixel2: Color): int =
-    (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B))
+    getFilteredSubBitmap screenshot (Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)) <| isWhitishPixel 160 10
 
 let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
-    let maxAbsDifference = bitmap1.Width * bitmap1.Height * 255 * 3
-    let pixelCoords = seq { for y in 0..(bitmap1.Height-1) do
-                                for x in 0..(bitmap1.Width-1) do
-                                    yield (x,y) }
-    let absDifference = pixelCoords
-                            |> Seq.map (fun (x,y) -> (bitmap1.GetPixel(x,y), bitmap2.GetPixel(x,y)))
-                            |> Seq.sumBy pixelAbsDiff
+    let pixelAbsDiffAndMaxDiff(pixel1: Color, pixel2: Color): int*int =
+        if pixel1.A = 0uy || pixel2.A = 0uy then
+            0, 0
+        else
+            (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B)), 3*255
 
-    (float)absDifference / (float)maxAbsDifference
+    let pixelDiffsAndMaxDiffs = seq { for y in 0..(bitmap1.Height-1) do
+                                        for x in 0..(bitmap1.Width-1) do
+                                            yield pixelAbsDiffAndMaxDiff(bitmap1.GetPixel(x,y),bitmap2.GetPixel(x,y)) }
+    let (absDiff, maxAbsDiff) = pixelDiffsAndMaxDiffs |> Seq.reduce (fun (d1,m1) (d2,m2) -> (d1+d2, m1+m2))
+    if maxAbsDiff = 0 then 0.0
+    else (float)absDiff / (float)maxAbsDiff
 
 let private modelCursor = new Bitmap(imageDir + "cursor.png")
 
@@ -114,7 +105,7 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
         | _ -> raise <| GameStateDetectionError("Unable to determine card owner")
 
 let modelPowerModifierMinus = new Bitmap(imageDir + "power_modifier_minus.png")
-let modelPowerModifierPlus = new Bitmap(imageDir + "power_modifier_plus.png")
+let modelPowerModifierPlus =  new Bitmap(imageDir + "power_modifier_plus.png")
 
 let private readPowerModifier screenshot (cardTopLeft: Point) =
     let actual = getPowerModifierBitmap screenshot cardTopLeft
@@ -137,7 +128,7 @@ let private modelDigits: Bitmap list =
 let private readDigitValue digitBitmap: int option =
     let candidatesWithDiffs = modelDigits 
                                 |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
-                                |> List.filter (snd >> ((>) 0.09))
+                                |> List.filter (snd >> ((>) 0.16))
 
     if List.isEmpty candidatesWithDiffs then
         Option.None
@@ -210,8 +201,29 @@ let readGameState screenshot =
 module Bootstrap =
     let mutable digitNames: list<string> = []
 
+    let digitMasks: Rectangle list array =
+        [| [];
+           [Rectangle(4,1,12,35)];
+           [];
+           [];
+           [];
+           [Rectangle(3,0,22,36)];
+           [];
+           [Rectangle(0,0,23,11); Rectangle(11,8,8,15); Rectangle(6,23,8,13)];
+           [];
+           [] |]
+
+    let rectanglePoints (size: Size) =
+        seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
+
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point
+        let masks = digitMasks.[int <| digitName.Substring(0, 1)]
+        let transparent = Color.FromArgb(0, 0, 0, 0)
+        rectanglePoints digitBitmap.Size |> Seq.iter (fun (x,y) ->
+            if not masks.IsEmpty && not (masks |> List.exists (fun rect -> rect.Contains(x,y))) then
+                digitBitmap.SetPixel(x,y, transparent)
+        )
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmap.Dispose()
         digitNames <- digitNames @ [digitName]
@@ -262,7 +274,7 @@ module Bootstrap =
         saveDigitFileFromScreenshot("8_1", myHandCardPositions.[2] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("8_2", myHandCardPositions.[3] + rightDigitOffset, screenshot)
         saveDigitFileFromScreenshot("8_3", myHandCardPositions.[4] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_3", myHandCardPositions.[4] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8_4", myHandCardPositions.[4] + rightDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("9_1", myCard0Selected + topDigitOffset, screenshot)
         saveDigitFileFromScreenshot("9_2", myCard0Selected + leftDigitOffset, screenshot)
