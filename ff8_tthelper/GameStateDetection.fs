@@ -229,8 +229,21 @@ module Bootstrap =
                 bitmap.SetPixel(x,y, transparent)
         )
 
+    let blurBitmap (bitmap: Bitmap) =
+        let blurred = new Bitmap(bitmap.Width, bitmap.Height, bitmap.PixelFormat)
+        rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+            let averageCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
+            let blurredPixel = averageCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
+                                    if p.A = 0uy then (sr,sg,sb,c)
+                                    else (sr+(int)p.R, sg+(int)p.G, sb+(int)p.G, c+1)
+                                ) (0,0,0,0) |> (fun (sr,sg,sb,c) -> if c=0 then Color.FromArgb(0,0,0,0) else Color.FromArgb(sr/c, sg/c, sb/c))
+            blurred.SetPixel(x, y, blurredPixel)
+        )
+        bitmap.Dispose()
+        blurred
+
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
-        let digitBitmap = getDigitBitmap screenshot point
+        let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
         let masks = digitMasks.[int <| digitName.Substring(0, 1)]
         let digitBitmapFromScreenshot = digitBitmap.Clone() :?> Bitmap
         maskBitmap masks digitBitmap
@@ -313,7 +326,7 @@ module Bootstrap =
         printfn "min non-matching diff = %A" minNonMatching 
 
     let saveCursorFromExampleScreenshot() =
-        let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
+        let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg") |> blurBitmap
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
         maskBitmap [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)] cursorBitmap
@@ -334,8 +347,8 @@ module Bootstrap =
         screenshot.Dispose()
 
     let savePowerModifiersFromExampleScreenshots() =
-        let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg")
-        let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
+        let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg") |> blurBitmap
+        let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg") |> blurBitmap
 
         let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0]
         maskBitmap [Rectangle(1,2,42,11); Rectangle(14,0,15,20)] plusBitmap
