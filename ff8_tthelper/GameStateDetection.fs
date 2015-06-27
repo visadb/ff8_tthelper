@@ -33,6 +33,11 @@ let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Arra
 let private targetSelectionCursorPositions =
     array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
+let copyBitmap (bitmap: Bitmap) =
+    let copy = new Bitmap(bitmap)
+    bitmap.Dispose()
+    copy
+
 let private getFilteredSubBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> bool) =
     let subBitmap = new Bitmap(rect.Width, rect.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
     seq { for y in 0 .. rect.Height-1 do
@@ -67,7 +72,7 @@ let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     if maxAbsDiff = 0 then 0.0
     else (float)absDiff / (float)maxAbsDiff
 
-let private modelCursor = new Bitmap(imageDir + "cursor.png")
+let private modelCursor = copyBitmap <| new Bitmap(imageDir + "cursor.png")
 
 let private isCursorAtPoint screenshot point: bool =
     let diff = bitmapDifference modelCursor (getCursorBitmap screenshot point)
@@ -104,8 +109,8 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
         | (my, op) when my < op && op > 15 -> Op
         | _ -> raise <| GameStateDetectionError("Unable to determine card owner")
 
-let modelPowerModifierMinus = new Bitmap(imageDir + "power_modifier_minus.png")
-let modelPowerModifierPlus =  new Bitmap(imageDir + "power_modifier_plus.png")
+let modelPowerModifierMinus = copyBitmap <| new Bitmap(imageDir + "power_modifier_minus.png")
+let modelPowerModifierPlus =  copyBitmap <| new Bitmap(imageDir + "power_modifier_plus.png")
 
 let private readPowerModifier screenshot (cardTopLeft: Point) =
     let actual = getPowerModifierBitmap screenshot cardTopLeft
@@ -122,7 +127,7 @@ let private readCardElement screenshot (cardTopLeft: Point) =
 
 let private modelDigits: Bitmap list =
     let getModelDigitBitmapFromDisk(digit: int): Bitmap =
-        new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
+        copyBitmap <| new Bitmap(imageDir + "digit" + digit.ToString() + "_1.png")
     [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
 
 let private readDigitValue digitBitmap: int option =
