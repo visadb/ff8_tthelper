@@ -314,7 +314,8 @@ module Bootstrap =
         for modelDigit in 1 .. 9 do
             for screenshotDigitName in digitNames do
                 let modelDigitName = sprintf "%d_1" modelDigit
-                let diff = bitmapDifference (new Bitmap(imageDir + "digit"+modelDigitName+".png")) (digitBitmapsFromScreenshot.Item screenshotDigitName)
+                let modelDigitBitmap = new Bitmap(imageDir + "digit"+modelDigitName+".png")
+                let diff = bitmapDifference modelDigitBitmap (digitBitmapsFromScreenshot.Item screenshotDigitName)
                 diffs <- (diff, modelDigitName, screenshotDigitName) :: diffs
                 printfn "DIFFERENCE B/W %s & %s: %f" modelDigitName screenshotDigitName diff
             done
