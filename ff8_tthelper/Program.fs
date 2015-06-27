@@ -13,7 +13,7 @@ let main argv =
     //Bootstrap.saveDigitFilesFromExampleScreenshot()
     //Bootstrap.printDiffs()
 
-    let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.png")
+    let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
     printfn "%O" <| readGameState screenshot
     screenshot.Dispose()
 

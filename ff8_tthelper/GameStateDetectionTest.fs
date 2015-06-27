@@ -32,13 +32,13 @@ let screenshotGameStates =
                                         [ pc [7;8;7;2] Me  0; pc [4;7;6;2] Me 0; pc [5;9;1;9] Me 0 ]
                                         [ pc [8;4;8;5] Me  0; emptySlot;         pc [9;8;6;2] Me 0 ] ])}
         })
-    (@"in-game\example_screenshot_3.png", {
-        turnPhase = MyCardSelection 0
-        myHand = [| hc [9;9;5;2] Me; hc [5;9;1;9] Me; hc [9;8;6;2] Me; hc [1;7;8;7] Me; hc [8;4;8;5] Me |]
-        opHand = [| Option.None;     hc [4;7;6;2] Op; hc [2;7;3;6] Op; hc [6;5;5;4] Op; hc [3;6;7;3] Op |]
-        playGrid = { slots = (array2D [ [ pc [3;1;5;2] Op +1; emptySlot; emptySlot ]
-                                        [ emptySlot;          emptySlot; emptySlot ]
-                                        [ emptySlot;          emptySlot; emptySlot ] ])}
+    (@"in-game\example_screenshot_3.jpg", {
+        turnPhase = MyCardSelection 1
+        myHand = [| Option.None; hc [9;8;6;2] Me; hc [8;8;5;2] Me; hc [1;3;8;8] Me; hc [7;4;8;3] Me |]
+        opHand = [| Option.None; Option.None    ; hc [7;8;7;2] Op; hc [3;6;7;3] Op; hc [7;4;2;7] Op |]
+        playGrid = { slots = (array2D [ [ pc [6;5;8;4] Op -1; emptySlot; emptySlot          ]
+                                        [ emptySlot;          emptySlot; pc [9;9;5;2] Op +1 ]
+                                        [ emptySlot;          emptySlot; pc [7;6;3;1] Op +0 ] ])}
         })
     (@"in-game\elemental_-1_in_0_1.jpg", {
         turnPhase = MyCardSelection 1
