@@ -113,8 +113,8 @@ let private readPowerModifier screenshot (cardTopLeft: Point) =
     let minusDiff = bitmapDifference actual modelPowerModifierMinus
     let plusDiff = lazy bitmapDifference actual modelPowerModifierPlus
 
-    if minusDiff < 0.05 then -1
-    else if plusDiff.Force() < 0.05 then +1
+    if minusDiff < 0.12 then -1
+    else if plusDiff.Force() < 0.12 then +1
          else 0
 
 let private readCardElement screenshot (cardTopLeft: Point) =
@@ -216,14 +216,17 @@ module Bootstrap =
     let rectanglePoints (size: Size) =
         seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
 
+    let maskBitmap (masks: Rectangle list) (bitmap: Bitmap) =
+        let transparent = Color.FromArgb(0, 0, 0, 0)
+        rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+            if not masks.IsEmpty && not (masks |> List.exists (fun rect -> rect.Contains(x,y))) then
+                bitmap.SetPixel(x,y, transparent)
+        )
+
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point
         let masks = digitMasks.[int <| digitName.Substring(0, 1)]
-        let transparent = Color.FromArgb(0, 0, 0, 0)
-        rectanglePoints digitBitmap.Size |> Seq.iter (fun (x,y) ->
-            if not masks.IsEmpty && not (masks |> List.exists (fun rect -> rect.Contains(x,y))) then
-                digitBitmap.SetPixel(x,y, transparent)
-        )
+        maskBitmap masks digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmap.Dispose()
         digitNames <- digitNames @ [digitName]
@@ -305,6 +308,7 @@ module Bootstrap =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
+        maskBitmap [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)] cursorBitmap
         cursorBitmap.Save(imageDir + "cursor.png", Imaging.ImageFormat.Png)
         cursorBitmap.Dispose()
 
@@ -326,9 +330,11 @@ module Bootstrap =
         let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
         let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0]
+        maskBitmap [Rectangle(1,2,42,11); Rectangle(14,0,15,20)] plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
         let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0]
+        maskBitmap [Rectangle(5,2,39,16)] minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
         printfn "Power modifier bitmap difference: %f" <| bitmapDifference plusBitmap minusBitmap
