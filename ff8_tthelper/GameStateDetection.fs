@@ -199,7 +199,7 @@ let readGameState screenshot =
 
     
 module Bootstrap =
-    let mutable digitNames: list<string> = []
+    let mutable digitBitmapsFromScreenshot: Map<string, Bitmap> = Map.empty
 
     let digitMasks: Rectangle list array =
         [| [];
@@ -227,10 +227,11 @@ module Bootstrap =
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point
         let masks = digitMasks.[int <| digitName.Substring(0, 1)]
+        let digitBitmapFromScreenshot = digitBitmap.Clone() :?> Bitmap
         maskBitmap masks digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmap.Dispose()
-        digitNames <- digitNames @ [digitName]
+        digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitBitmapFromScreenshot)
 
     let saveDigitFilesFromExampleScreenshot() =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
@@ -291,19 +292,20 @@ module Bootstrap =
     let printDiffs() =
         let mutable diffs = []
 
-        for i in 0 .. digitNames.Length-1 do
-            for j in i+1 .. digitNames.Length-1 do
-                let (n1, n2) = (List.nth digitNames i, List.nth digitNames j)
-                let diff = bitmapDifference (new Bitmap(imageDir + "digit"+n1+".png")) (new Bitmap(imageDir + "digit"+n2+".png"))
-                diffs <- (diff, n1.[0] = n2.[0]) :: diffs
-
-                printfn "DIFFERENCE B/W %s & %s: %f" n1 n2 diff
+        let digitNames = digitBitmapsFromScreenshot |> Map.toList |> List.map fst
+        for modelDigit in 1 .. 9 do
+            for screenshotDigitName in digitNames do
+                let modelDigitName = sprintf "%d_1" modelDigit
+                let diff = bitmapDifference (new Bitmap(imageDir + "digit"+modelDigitName+".png")) (digitBitmapsFromScreenshot.Item screenshotDigitName)
+                diffs <- (diff, modelDigitName, screenshotDigitName) :: diffs
+                printfn "DIFFERENCE B/W %s & %s: %f" modelDigitName screenshotDigitName diff
             done
             printfn ""
         done
-
-        printfn "max matching diff = %f" (diffs |> List.filter (fun (_, m) -> m) |> List.maxBy (fun (d, _) -> d) |> fst)
-        printfn "min non-matching diff = %f" (diffs |> List.filter (fun (_, m) -> not m) |> List.minBy (fun (d, _) -> d) |> fst)
+        let maxMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] = n2.[0]) |> List.maxBy (fun (d, _, _) -> d)
+        let minNonMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] <> n2.[0]) |> List.minBy (fun (d, _, _) -> d)
+        printfn "max matching diff = %A" maxMatching
+        printfn "min non-matching diff = %A" minNonMatching 
 
     let saveCursorFromExampleScreenshot() =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
