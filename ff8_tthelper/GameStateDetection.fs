@@ -347,14 +347,14 @@ module Bootstrap =
         screenshot.Dispose()
 
     let savePowerModifiersFromExampleScreenshots() =
-        let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg") |> blurBitmap
-        let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg") |> blurBitmap
+        let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg")
+        let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
-        let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0]
+        let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0] |> blurBitmap
         maskBitmap [Rectangle(1,2,42,11); Rectangle(14,0,15,20)] plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
-        let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0]
+        let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0] |> blurBitmap
         maskBitmap [Rectangle(5,2,39,16)] minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
