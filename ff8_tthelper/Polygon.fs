@@ -48,12 +48,19 @@ type Polygon(segments: Segment seq) =
     let inBoundingBox (p: Point) =
         p.X >= minX && p.X <= maxX && p.Y >= minY && p.Y <= maxY
 
-    let containsRayCasting (p: Point) =
-        let ray = Segment(p, Point(maxX + 50, p.Y))
+    let boolToInt b = if b then 1 else 0
+
+    let containsRayCastingGivenRay (p: Point) (ray: Segment) =
         let intersectCount = segments |> Seq.map ray.Intersects
-                                      |> Seq.sumBy (fun i -> if i then 1 else 0)
-        do System.Console.WriteLine("intersectCount {0}/{1}", intersectCount, (Seq.length segments))
+                                      |> Seq.sumBy boolToInt
+
+        //System.Console.WriteLine("intersectCount {0}/{1}", intersectCount, (Seq.length segments))
         intersectCount % 2 = 1
+
+    let containsRayCasting (p: Point) =
+        [for ydiff in [-5; 0; 5] -> Segment(p, Point(maxX + 50, p.Y + ydiff))]
+            |> List.map (containsRayCastingGivenRay p) |> List.sumBy boolToInt
+            >= 2
 
     new(vertices: Point seq) =
         let segments = Seq.append vertices [Seq.head vertices] |> Seq.pairwise |> Seq.map Segment
@@ -173,12 +180,12 @@ module PolygonTests =
         [<Test>] member x.``out, inside bounding box, 2 isects``()= (17,40) |> shouldNotBeIn simple
         [<Test>] member x.``out, inside concave indent``()=         (30,40) |> shouldNotBeIn simple
 
-        [<Test>] member x.``in, in square``()=                        (1,1) |> shouldBeIn    square3by3
-        [<Test>] member x.``out, on square top left corner``()=       (0,0) |> shouldNotBeIn square3by3
-        [<Test>] member x.``out, on square bottom right corner``()=   (2,2) |> shouldNotBeIn square3by3
-        [<Test>] member x.``out, on square left edge``()=             (0,1) |> shouldNotBeIn square3by3
-        [<Test>] member x.``out, on square right edge``()=            (2,1) |> shouldNotBeIn square3by3
-        [<Test>] member x.``out, on square bottom edge``()=           (1,2) |> shouldNotBeIn square3by3
+        [<Test>] member x.``in, in square``()=                       (1,1) |> shouldBeIn square3by3
+        [<Test>] member x.``in, on square top left corner``()=       (0,0) |> shouldBeIn square3by3
+        [<Test>] member x.``in, on square bottom right corner``()=   (2,2) |> shouldBeIn square3by3
+        [<Test>] member x.``in, on square left edge``()=             (0,1) |> shouldBeIn square3by3
+        [<Test>] member x.``in, on square right edge``()=            (2,1) |> shouldBeIn square3by3
+        [<Test>] member x.``in, on square bottom edge``()=           (1,2) |> shouldBeIn square3by3
 
         [<Test>] member x.``in, in the bottom left leg of 8``()=    (22,55) |> shouldBeIn    nr8
         [<Test>] member x.``in, in the top right hand of 8``()=     (37,25) |> shouldBeIn    nr8
