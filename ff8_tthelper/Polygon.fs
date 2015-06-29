@@ -11,16 +11,32 @@ type private Orientation =
         else if value = 0 then Colinear
         else CW
 
+    override this.ToString() =
+        match this with Colinear -> "Colinear" | CW -> "CW" | CCW -> "CCW"
+
 type Segment =
     val A: Point
     val B: Point
-    new(a: Point, b: Point) = { A = a; B = b }
-    new(x1, y1, x2, y2) = { A = Point(x1,y1); B = Point(x2,y2)}
-    new((x1, y1), (x2, y2)) = { A = Point(x1,y1); B = Point(x2,y2)}
+    val AIncl: bool
+    val BIncl: bool
+    new(a: Point, b: Point, aIncl: bool, bIncl: bool) =
+        { A = a; B = b; AIncl = aIncl; BIncl = bIncl }
+    new(a: Point, b: Point) =
+        Segment(a, b, true, true)
+    new((x1, y1), (x2, y2), aIncl: bool, bIncl: bool) =
+        Segment(Point(x1,y1), Point(x2,y2), aIncl, bIncl)
+    new((x1, y1), (x2, y2)) =
+        Segment(Point(x1,y1), Point(x2,y2), true, true)
 
-    member private this.ContainsColinearPoint (p: Point) =
-        p.X <= (max this.A.X this.B.X) && p.X >= (min this.A.X this.B.X)
+    member private this.ContainsColinearPoint (p: Point) pIncl =
+        pIncl
+     && (p <> this.A || this.AIncl)
+     && (p <> this.B || this.BIncl)
+     && p.X <= (max this.A.X this.B.X) && p.X >= (min this.A.X this.B.X)
      && p.Y <= (max this.A.Y this.B.Y) && p.Y >= (min this.A.Y this.B.Y)
+
+    member this.Contains (p: Point) =
+        (Orientation.Of this.A this.B p) = Colinear && this.ContainsColinearPoint p true
 
     member this.Intersects (other: Segment): bool =
         let o1 = Orientation.Of this.A this.B other.A
@@ -28,20 +44,41 @@ type Segment =
         let o3 = Orientation.Of other.A other.B this.A
         let o4 = Orientation.Of other.A other.B this.B
 
-        o1 <> o2 && o3 <> o4
-     || o1 = Colinear && (this.ContainsColinearPoint other.A)
-     || o2 = Colinear && (this.ContainsColinearPoint other.B)
-     || o3 = Colinear && (other.ContainsColinearPoint this.A)
-     || o4 = Colinear && (other.ContainsColinearPoint this.B)
+        let basicTest = o1 <> Colinear && o2 <> Colinear && o3 <> Colinear && o4 <> Colinear
+                     && o1 <> o2 && o3 <> o4
 
-    member this.Translated by =
-        Segment(this.A + by, this.B + by)
+        basicTest
+     || o1 = Colinear && (this.ContainsColinearPoint other.A other.AIncl)
+     || o2 = Colinear && (this.ContainsColinearPoint other.B other.BIncl)
+     || o3 = Colinear && (other.ContainsColinearPoint this.A this.AIncl)
+     || o4 = Colinear && (other.ContainsColinearPoint this.B this.BIncl)
+
+    member this.Translated by = Segment(this.A + by, this.B + by)
 
     override this.ToString(): string =
+        // TODO: Reflect inclusiveness
         sprintf "Seg (%d,%d)->(%d,%d)" this.A.X this.A.Y this.B.X this.B.Y
 
-type Polygon(segments: Segment seq) =
-    // TODO: find segment pairs where fst.B = snd.A and Offset snd.A by 1 pixel to the direction of snd
+    override this.Equals(otherObj: obj) =
+        let other = otherObj :?> Segment
+        this.A = other.A && this.B = other.B
+
+    override this.GetHashCode() = hash this
+
+// NOTE! linked segments must be consecutive!
+type Polygon(segments0: Segment seq) =
+
+    let segments =
+        let dySign (s: Segment) = sign (s.B.Y - s.A.Y)
+        let dySignIsOpposite s1 s2 = dySign s1 <> 0 && (dySign s1) = -(dySign s2)
+
+        Seq.append segments0 [Seq.head segments0] |> Seq.pairwise 
+            |> Seq.map (fun (s1, s2) ->
+                if s1.B = s2.A && not (dySignIsOpposite s1 s2) then
+                    Segment(s1.A, s1.B, true, false)
+                else
+                    s1
+               )
 
     let (minX, minY, maxX, maxY) =
         segments |> Seq.fold (fun (minX,minY,maxX,maxY) s ->
@@ -51,11 +88,11 @@ type Polygon(segments: Segment seq) =
         p.X >= minX && p.X <= maxX && p.Y >= minY && p.Y <= maxY
 
     let containsRayCasting (p: Point) =
-        let ray = Segment(p, Point(maxX + 50, p.Y))
-        let intersectCount = segments |> Seq.map ray.Intersects
-                                      |> Seq.sumBy (fun i -> if i then 1 else 0)
-        // System.Console.WriteLine("intersectCount {0}/{1}", intersectCount, (Seq.length segments))
-        intersectCount % 2 = 1
+        let ray = Segment(p, Point(maxX + 50, p.Y), false, false)
+        let onSegment = segments |> Seq.exists (fun s -> s.Contains p)
+        let intersectCount = lazy (segments |> Seq.map ray.Intersects
+                                            |> Seq.sumBy (fun i -> if i then 1 else 0))
+        onSegment || intersectCount.Force() % 2 = 1
 
     new(vertices: Point seq) =
         let segments = Seq.append vertices [Seq.head vertices] |> Seq.pairwise |> Seq.map Segment
@@ -84,52 +121,94 @@ module SegmentTests =
     type ``Segment intersection test`` ()=
 
         [<Test>]
-        member x.``Non intersecting segments`` ()=                    //   | |
+        member x.``Non isecting`` ()=                                 //   | |
             let s1 = Segment((1,0), (1,5))                            //   | |
             let s2 = Segment((2,0), (2,5))                            //   | |
             s1.Intersects s2 |> should be False                       //   | |
 
         [<Test>]
-        member x.``Colinear separate segments`` ()=                   //   -----  -----
+        member x.``Colinear separate`` ()=                            //   -----  -----
             let s1 = Segment((0,0), (3,0))                            //
             let s2 = Segment((4,0), (6,0))                            //
             s1.Intersects s2 |> should be False                       //
 
         [<Test>]
-        member x.``Colinear overlapping segments`` ()=                //   ----~~----
+        member x.``Colinear overlapping`` ()=                         //   ----~~----
             let s1 = Segment((0,0), (4,0))                            //
             let s2 = Segment((3,0), (6,0))                            //
             s1.Intersects s2 |> should be True                        //
 
         [<Test>]
-        member x.``Equal segments`` ()=                               //   ~~~~~~
+        member x.``Equal`` ()=                                        //   ~~~~~~
             let s1 = Segment((0,0), (5,0))                            //
             let s2 = Segment((0,0), (5,0))                            //
             s1.Intersects s2 |> should be True                        //
 
         [<Test>]
-        member x.``Segments intersecting in the middle`` ()=          //   \  /
+        member x.``isecting in the middle`` ()=                       //   \  /
             let s1 = Segment((0,0), (5,5))                            //    \/
             let s2 = Segment((0,5), (5,0))                            //    /\
             s1.Intersects s2 |> should be True                        //   /  \
 
         [<Test>]
-        member x.``Segments intersecting in the first point`` ()=     //    ______
+        member x.``isecting in the first point`` ()=                  //    ______
             let s1 = Segment((0,0), (5,0))                            //   |
             let s2 = Segment((0,0), (0,5))                            //   |
             s1.Intersects s2 |> should be True                        //   |
 
         [<Test>]
-        member x.``Segments intersecting in the second point`` ()=    //   |   /
+        member x.``isecting in the second point`` ()=                 //   |   /
             let s1 = Segment((0,0), (0,5))                            //   |  /
             let s2 = Segment((5,0), (0,5))                            //   | /
             s1.Intersects s2 |> should be True                        //   |/
 
         [<Test>]
-        member x.``Segment touching other segment in the middle`` ()= // _________
+        member x.``touching other segment in the middle`` ()=         // _________
             let s1 = Segment((0,0), (5,0))                            //      |
             let s2 = Segment((3,0), (3,5))                            //      |
             s1.Intersects s2 |> should be True                        //      |
+
+        [<Test>]
+        member x.``isecting in the first point, fst exclusive`` ()=   //    ._____
+            let s1 = Segment((0,0), (5,0), false, true)               //   |
+            let s2 = Segment((0,0), (0,5), true, true)                //   |
+            s1.Intersects s2 |> should be False                       //   |
+
+        [<Test>]
+        member x.``isecting in the first point, snd exclusive`` ()=   //    ______
+            let s1 = Segment((0,0), (5,0), true, true)                //   :
+            let s2 = Segment((0,0), (0,5), false, true)               //   |
+            s1.Intersects s2 |> should be False                       //   |
+
+        [<Test>]
+        member x.``isecting in the first point, both exclusive`` ()=  //    ______
+            let s1 = Segment((0,0), (5,0), false, true)               //   :
+            let s2 = Segment((0,0), (0,5), false, true)               //   |
+            s1.Intersects s2 |> should be False                       //   |
+
+        [<Test>]
+        member x.``isecting in the second point, fst exclusive`` ()=  //   |   /
+            let s1 = Segment((0,0), (0,5), true, false)               //   |  /
+            let s2 = Segment((5,0), (0,5), true, true)                //   | /
+            s1.Intersects s2 |> should be False                       //   :/
+
+        [<Test>]
+        member x.``isecting in the second point, snd exclusive`` ()=  //   |   /
+            let s1 = Segment((0,0), (0,5), true, true)                //   |  /
+            let s2 = Segment((5,0), (0,5), true, false)               //   | /
+            s1.Intersects s2 |> should be False                       //   |,
+
+        [<Test>]
+        member x.``touching in the middle, fst end exclusive`` ()=    // _________
+            let s1 = Segment((0,0), (5,0), true, true)                //      :
+            let s2 = Segment((3,0), (3,5), false, true)               //      |
+            s1.Intersects s2 |> should be False                       //      |
+
+        [<Test>]
+        member x.``touching in the middle, snd end exclusive`` ()=    // _________
+            let s1 = Segment((0,0), (5,0), true, true)                //      :
+            let s2 = Segment((3,5), (3,0), true, false)               //      |
+            s1.Intersects s2 |> should be False                       //      |
 
 module PolygonTests =
     open FsUnit
@@ -177,12 +256,11 @@ module PolygonTests =
                 |> List.iter bitmap.SetPixel
             bitmap.Save(@"D:\temp\"+name+".png", Imaging.ImageFormat.Png)
             
-            
 
         [<Test>] member x.``in, 1 isect``()=                        (45,40) |> shouldBeIn    simple
         [<Test>] member x.``in, 3 isects``()=                       (22,40) |> shouldBeIn    simple
         [<Test>] member x.``in, isect through concave vertex``()=   (22,50) |> shouldBeIn    simple
-        [<Test>] member x.``out, on concave vertex``()=             (30,50) |> shouldNotBeIn simple
+        [<Test>] member x.``in, on concave vertex``()=              (30,50) |> shouldBeIn    simple
         [<Test>] member x.``out, outside bounding box``()=          ( 5,40) |> shouldNotBeIn simple
         [<Test>] member x.``out, inside bounding box, 0 isects``()= (40,58) |> shouldNotBeIn simple
         [<Test>] member x.``out, inside bounding box, 2 isects``()= (17,40) |> shouldNotBeIn simple
