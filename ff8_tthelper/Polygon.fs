@@ -56,8 +56,9 @@ type Segment =
     member this.Translated by = Segment(this.A + by, this.B + by)
 
     override this.ToString(): string =
-        // TODO: Reflect inclusiveness
-        sprintf "Seg (%d,%d)->(%d,%d)" this.A.X this.A.Y this.B.X this.B.Y
+        sprintf "Seg %s%d,%d->%d,%d%s" (if this.AIncl then "[" else "]") 
+                                       this.A.X this.A.Y this.B.X this.B.Y
+                                       (if this.BIncl then "]" else "[") 
 
     override this.Equals(otherObj: obj) =
         let other = otherObj :?> Segment
@@ -118,7 +119,7 @@ module SegmentTests =
     open NUnit.Framework
 
     [<TestFixture>]
-    type ``Segment intersection test`` ()=
+    type ``Segment tests`` ()=
 
         [<Test>]
         member x.``Non isecting`` ()=                                 //   | |
@@ -210,6 +211,34 @@ module SegmentTests =
             let s2 = Segment((3,5), (3,0), true, false)               //      |
             s1.Intersects s2 |> should be False                       //      |
 
+        [<Test>]
+        member x.``does not contain point`` ()=                       // _________
+            let s1 = Segment((0,0), (5,0), true, true)                //      .
+            s1.Contains (Point(3,1)) |> should be False               //
+
+        [<Test>]
+        member x.``point in middle`` ()=                              // _____.___
+            let s1 = Segment((0,0), (5,0), true, true)                //
+            s1.Contains (Point(3,0)) |> should be True                //
+
+        [<Test>]
+        member x.``point in exclusive end`` ()=                       // ________.
+            let s1 = Segment((0,0), (5,0), true, false)               //      
+            s1.Contains (Point(5,0)) |> should be False               //
+
+        [<Test>]
+        member x.``point in inclusive end`` ()=                       // ________.
+            let s1 = Segment((0,0), (5,0), true, true)                //      
+            s1.Contains (Point(5,0)) |> should be True                //
+
+        [<Test>]
+        member x.``toString inclusive-exclusive`` ()=
+            Segment((1,2), (3,4), true, false).ToString() |> should equal "Seg [1,2->3,4["
+
+        [<Test>]
+        member x.``toString exclusive-inclusive`` ()=
+            Segment((1,2), (3,4), false, true).ToString() |> should equal "Seg ]1,2->3,4]"
+
 module PolygonTests =
     open FsUnit
     open NUnit.Framework
@@ -255,6 +284,7 @@ module PolygonTests =
                     if p.Contains(Point(x,y)) then yield (x,y,Color.White) ]
                 |> List.iter bitmap.SetPixel
             bitmap.Save(@"D:\temp\"+name+".png", Imaging.ImageFormat.Png)
+            bitmap.Dispose()
             
 
         [<Test>] member x.``in, 1 isect``()=                        (45,40) |> shouldBeIn    simple
@@ -282,6 +312,7 @@ module PolygonTests =
         [<Test>] member x.``out, in the top hole of 8``()=          (30,25) |> shouldNotBeIn nr8
 
         [<Test>]
+        [<Ignore("For debugging only")>]
         member x.``draw bitmaps``()=
             drawPolygon "simple" simple
             drawPolygon "square3by3" square3by3
