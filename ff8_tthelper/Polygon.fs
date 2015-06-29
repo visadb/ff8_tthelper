@@ -41,6 +41,8 @@ type Segment =
         sprintf "Seg (%d,%d)->(%d,%d)" this.A.X this.A.Y this.B.X this.B.Y
 
 type Polygon(segments: Segment seq) =
+    // TODO: find segment pairs where fst.B = snd.A and Offset snd.A by 1 pixel to the direction of snd
+
     let (minX, minY, maxX, maxY) =
         segments |> Seq.fold (fun (minX,minY,maxX,maxY) s ->
             (min s.A.X minX, min s.A.Y minY, max s.A.X maxX, max s.A.Y maxY)
@@ -48,19 +50,12 @@ type Polygon(segments: Segment seq) =
     let inBoundingBox (p: Point) =
         p.X >= minX && p.X <= maxX && p.Y >= minY && p.Y <= maxY
 
-    let boolToInt b = if b then 1 else 0
-
-    let containsRayCastingGivenRay (p: Point) (ray: Segment) =
-        let intersectCount = segments |> Seq.map ray.Intersects
-                                      |> Seq.sumBy boolToInt
-
-        //System.Console.WriteLine("intersectCount {0}/{1}", intersectCount, (Seq.length segments))
-        intersectCount % 2 = 1
-
     let containsRayCasting (p: Point) =
-        [for ydiff in [-5; 0; 5] -> Segment(p, Point(maxX + 50, p.Y + ydiff))]
-            |> List.map (containsRayCastingGivenRay p) |> List.sumBy boolToInt
-            >= 2
+        let ray = Segment(p, Point(maxX + 50, p.Y))
+        let intersectCount = segments |> Seq.map ray.Intersects
+                                      |> Seq.sumBy (fun i -> if i then 1 else 0)
+        // System.Console.WriteLine("intersectCount {0}/{1}", intersectCount, (Seq.length segments))
+        intersectCount % 2 = 1
 
     new(vertices: Point seq) =
         let segments = Seq.append vertices [Seq.head vertices] |> Seq.pairwise |> Seq.map Segment
@@ -68,6 +63,8 @@ type Polygon(segments: Segment seq) =
 
     new(vertices: (int*int) seq) =
         Polygon(vertices |> Seq.map Point)
+
+    member this.BoundingBox = Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1)
 
     member this.Contains (p: Point): bool =
         if not (inBoundingBox p) then false
@@ -79,7 +76,7 @@ type Polygon(segments: Segment seq) =
     override this.ToString(): string =
         sprintf "Polygon (%A)" segments
 
-module private SegmentTests =
+module SegmentTests =
     open FsUnit
     open NUnit.Framework
 
@@ -171,6 +168,17 @@ module PolygonTests =
         let shouldBeIn polygon p = p |> should be (InPolygon polygon)
         let shouldNotBeIn polygon p = p |> should not' (be (InPolygon polygon))
 
+        let drawPolygon name (p: Polygon) =
+            let bb = p.BoundingBox
+            let bitmap = new Bitmap(bb.X + bb.Width+5, bb.Y + bb.Height + 5, Imaging.PixelFormat.Format24bppRgb)
+            [ for y in 0..bitmap.Height-1 do
+                for x in 0..bitmap.Width-1 do
+                    if p.Contains(Point(x,y)) then yield (x,y,Color.White) ]
+                |> List.iter bitmap.SetPixel
+            bitmap.Save(@"D:\temp\"+name+".png", Imaging.ImageFormat.Png)
+            
+            
+
         [<Test>] member x.``in, 1 isect``()=                        (45,40) |> shouldBeIn    simple
         [<Test>] member x.``in, 3 isects``()=                       (22,40) |> shouldBeIn    simple
         [<Test>] member x.``in, isect through concave vertex``()=   (22,50) |> shouldBeIn    simple
@@ -196,10 +204,7 @@ module PolygonTests =
         [<Test>] member x.``out, in the top hole of 8``()=          (30,25) |> shouldNotBeIn nr8
 
         [<Test>]
-        member x.``draw 8``()=
-            let bitmap = new Bitmap(30, 70, Imaging.PixelFormat.Format24bppRgb)
-            [ for y in 0..bitmap.Height-1 do
-                for x in 0..bitmap.Width-1 do
-                    if nr8.Contains(Point(x+15,y+5)) then yield (x,y,Color.White) ]
-                |> List.iter bitmap.SetPixel
-            bitmap.Save(@"D:\temp\nr8.png", Imaging.ImageFormat.Png)
+        member x.``draw bitmaps``()=
+            drawPolygon "simple" simple
+            drawPolygon "square3by3" square3by3
+            drawPolygon "nr8" nr8
