@@ -72,10 +72,12 @@ type Polygon(segments0: Segment seq) =
     let segments =
         let dySign (s: Segment) = sign (s.B.Y - s.A.Y)
         let dySignIsOpposite s1 s2 = dySign s1 <> 0 && (dySign s1) = -(dySign s2)
+        let isPotentialRayExitOrEntryVertex (s1: Segment) (s2: Segment) =
+            s1.B = s2.A && not (dySignIsOpposite s1 s2)
 
         Seq.append segments0 [Seq.head segments0] |> Seq.pairwise 
             |> Seq.map (fun (s1, s2) ->
-                if s1.B = s2.A && not (dySignIsOpposite s1 s2) then
+                if isPotentialRayExitOrEntryVertex s1 s2 then
                     Segment(s1.A, s1.B, true, false)
                 else
                     s1
