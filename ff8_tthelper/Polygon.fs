@@ -66,22 +66,47 @@ type Segment =
 
     override this.GetHashCode() = hash this
 
-// NOTE! linked segments must be consecutive!
-type Polygon(segments0: Segment seq) =
+exception private Unreachable
 
-    let segments =
+// NOTE! linked segments must be consecutive and must not
+//       contain 2 consecutive horizontal segments
+type Polygon(segments: Segment seq) =
+
+    let connectedComponents =
+        segments |> Seq.fold (fun (complete, current, currentFirstVertex: Point option) s ->
+            if currentFirstVertex.IsNone then
+                (complete, Seq.singleton s, Some(s.A))
+            else if currentFirstVertex.Value = s.B then
+                (Seq.append complete [Seq.append current (Seq.singleton s)], Seq.empty, Option.None)
+            else if s.A <> (Seq.last current).B then
+                raise <| System.ArgumentException(
+                    sprintf "consecutive segments not connected: %A %A" (Seq.last current) s)
+            else
+                (complete, Seq.append current (Seq.singleton s), currentFirstVertex)
+        ) (Seq.empty, Seq.empty, Option.None)
+            |> (fun (components, currentComponent, _) -> 
+                    if Seq.isEmpty components then
+                        raise <| System.ArgumentException("no connected components")
+                    if not (Seq.isEmpty currentComponent) then
+                        raise <| System.ArgumentException(sprintf "Orphan segments: %A" currentComponent)
+                    components |> List.ofSeq
+                )
+
+    let containmentTestSegments =
+      lazy
         let dySign (s: Segment) = sign (s.B.Y - s.A.Y)
         let dySignIsOpposite s1 s2 = dySign s1 <> 0 && (dySign s1) = -(dySign s2)
         let isPotentialRayExitOrEntryVertex (s1: Segment) (s2: Segment) =
             s1.B = s2.A && not (dySignIsOpposite s1 s2)
 
-        Seq.append segments0 [Seq.head segments0] |> Seq.pairwise 
-            |> Seq.map (fun (s1, s2) ->
-                if isPotentialRayExitOrEntryVertex s1 s2 then
-                    Segment(s1.A, s1.B, true, false)
-                else
-                    s1
-               )
+        connectedComponents |> Seq.collect (fun connectedComponent ->
+            Seq.append connectedComponent [Seq.head connectedComponent] |> Seq.pairwise
+                |> Seq.map (fun (s1, s2) ->
+                    if isPotentialRayExitOrEntryVertex s1 s2 then
+                        Segment(s1.A, s1.B, true, false)
+                    else
+                        s1
+                   )) |> List.ofSeq
 
     let (minX, minY, maxX, maxY) =
         segments |> Seq.fold (fun (minX,minY,maxX,maxY) s ->
@@ -93,8 +118,8 @@ type Polygon(segments0: Segment seq) =
     let containsRayCasting (p: Point) =
         let ray = Segment(p, Point(maxX + 50, p.Y), false, false)
         let onSegment = segments |> Seq.exists (fun s -> s.Contains p)
-        let intersectCount = lazy (segments |> Seq.map ray.Intersects
-                                            |> Seq.sumBy (fun i -> if i then 1 else 0))
+        let intersectCount = lazy (containmentTestSegments.Force() |> Seq.map ray.Intersects
+                                                                   |> Seq.sumBy (fun i -> if i then 1 else 0))
         onSegment || intersectCount.Force() % 2 = 1
 
     new(vertices: Point seq) =
@@ -110,11 +135,14 @@ type Polygon(segments0: Segment seq) =
         if not (inBoundingBox p) then false
         else containsRayCasting p
 
-    member public this.Contains ((x,y): int*int): bool =
+    member this.Contains ((x,y): int*int): bool =
         this.Contains(Point(x, y))
 
-    member public this.Contains(x: int, y: int): bool =
+    member this.Contains(x: int, y: int): bool =
         this.Contains(Point(x, y))
+
+    member this.Translated (by: Size): Polygon =
+        Polygon(segments |> Seq.map (fun s -> s.Translated by))
 
     override this.ToString(): string =
         sprintf "Polygon (%A)" segments
@@ -289,6 +317,7 @@ module PolygonTests =
             let upperHole = [30,15;35,20;35,30;30,35;25,30;25,20;30,15] |> Seq.pairwise |> Seq.map Segment
             let lowerHole: Segment seq = upperHole |> Seq.map (fun s -> s.Translated(Size(0,30)))
             Polygon (Seq.concat [outline; upperHole; lowerHole])
+        let withHorizSegment = Polygon([0,30; 10,20; 20,20; 25,10; 30,10; 30,30])
 
         let shouldBeIn polygon p = p |> should be (InPolygon polygon)
         let shouldNotBeIn polygon p = p |> should not' (be (InPolygon polygon))
@@ -323,3 +352,4 @@ module PolygonTests =
             drawPolygon(simple, @"D:\temp\simple.png", None)
             drawPolygon(square3by3, @"D:\temp\square3by3.png", None)
             drawPolygon(nr8, @"D:\temp\nr8.png", None)
+            drawPolygon(withHorizSegment, @"D:\temp\withHorizSegment.png", None)
