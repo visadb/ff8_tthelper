@@ -1,4 +1,4 @@
-﻿module PolygonModule
+﻿module Polygon
 
 open System.Drawing
 
@@ -110,12 +110,15 @@ type Polygon(segments0: Segment seq) =
         if not (inBoundingBox p) then false
         else containsRayCasting p
 
-    member this.Contains (p: int*int): bool =
-        this.Contains(Point(fst p, snd p))
+    member public this.Contains ((x,y): int*int): bool =
+        this.Contains(Point(x, y))
+
+    member public this.Contains(x: int, y: int): bool =
+        this.Contains(Point(x, y))
 
     override this.ToString(): string =
         sprintf "Polygon (%A)" segments
-
+            
 module SegmentTests =
     open FsUnit
     open NUnit.Framework

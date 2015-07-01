@@ -2,6 +2,7 @@
 
 open System.Drawing
 
+open Polygon
 open DomainTypes
 
 let imageDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\images\"
@@ -222,10 +223,19 @@ module Bootstrap =
     let rectanglePoints (size: Size) =
         seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
 
-    let maskBitmap (masks: Rectangle list) (bitmap: Bitmap) =
+    type BitmapMask =
+        RectangleMask of Rectangle list | PolygonMask of Polygon
+
+        member this.Contains ((x,y): int*int): bool =
+            match this with
+               | RectangleMask masks -> masks |> List.exists (fun rect -> rect.Contains(x, y))
+               | PolygonMask polygon -> polygon.Contains(x, y)
+            
+
+    let maskBitmap (mask: BitmapMask) (bitmap: Bitmap) =
         let transparent = Color.FromArgb(0, 0, 0, 0)
         rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
-            if not masks.IsEmpty && not (masks |> List.exists (fun rect -> rect.Contains(x,y))) then
+            if not (mask.Contains(x,y)) then
                 bitmap.SetPixel(x,y, transparent)
         )
 
@@ -246,7 +256,7 @@ module Bootstrap =
         let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
         let masks = digitMasks.[int <| digitName.Substring(0, 1)]
         let digitBitmapFromScreenshot = digitBitmap.Clone() :?> Bitmap
-        maskBitmap masks digitBitmap
+        maskBitmap (RectangleMask masks) digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmap.Dispose()
         digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitBitmapFromScreenshot)
@@ -330,7 +340,8 @@ module Bootstrap =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg") |> blurBitmap
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
-        maskBitmap [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)] cursorBitmap
+        let cursorMask = RectangleMask [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)]
+        maskBitmap cursorMask cursorBitmap
         cursorBitmap.Save(imageDir + "cursor.png", Imaging.ImageFormat.Png)
         cursorBitmap.Dispose()
 
@@ -352,11 +363,11 @@ module Bootstrap =
         let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
         let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0] |> blurBitmap
-        maskBitmap [Rectangle(1,2,42,11); Rectangle(14,0,15,20)] plusBitmap
+        maskBitmap (RectangleMask [Rectangle(1,2,42,11); Rectangle(14,0,15,20)]) plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
         let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0] |> blurBitmap
-        maskBitmap [Rectangle(5,2,39,16)] minusBitmap
+        maskBitmap (RectangleMask [Rectangle(5,2,39,16)]) minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
         printfn "Power modifier bitmap difference: %f" <| bitmapDifference plusBitmap minusBitmap
