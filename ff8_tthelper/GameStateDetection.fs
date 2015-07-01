@@ -34,6 +34,9 @@ let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Arra
 let private targetSelectionCursorPositions =
     array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
+let private cardElementSize = Size(54, 64)
+let private cardElementOffset = Size(149, 10)
+
 let copyBitmap (bitmap: Bitmap) =
     let copy = new Bitmap(bitmap)
     bitmap.Dispose()
@@ -58,6 +61,10 @@ let private getCursorBitmap screenshot point =
 
 let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
     getFilteredSubBitmap screenshot (Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)) <| isWhitishPixel 160 10
+
+let private getCardElementBitmap screenshot (cardTopLeft: Point) =
+    getFilteredSubBitmap screenshot (Rectangle(cardTopLeft + cardElementOffset, cardElementSize)) (fun _ -> true)
+    
 
 let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     let pixelAbsDiffAndMaxDiff(pixel1: Color, pixel2: Color): int*int =
@@ -376,3 +383,44 @@ module Bootstrap =
         minusBitmap.Dispose()
         screenshotWithPlus.Dispose()
         screenshotWithMinus.Dispose()
+
+    type ElementSymbolInfo = {
+        element: Element
+        sourceBitmap: Bitmap
+        cardTopLeft: Point
+        mask: BitmapMask
+    }
+
+    let getMaskedBitmap (sourceBitmap: Bitmap) = ()
+
+    let saveElementSymbolFromExampleScreenshot (symInfo: ElementSymbolInfo) =
+        let elemBitmap = getCardElementBitmap symInfo.sourceBitmap symInfo.cardTopLeft
+        let elemName = (sprintf "%A" <| symInfo.element).ToLower()
+        maskBitmap symInfo.mask elemBitmap
+        elemBitmap.Save(imageDir + "element_"+elemName+".png", Imaging.ImageFormat.Png)
+
+    let saveElementSymbolsFromExampleScreenshots() =
+        let example3 = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
+        let example4 = new Bitmap(screenshotDir + @"in-game\example_screenshot_4.jpg")
+
+        let symbolInfos = [
+            { element = Fire
+              sourceBitmap = example3
+              cardTopLeft = myHandCardPositions.[1] + cardSelectionOffset
+              mask = Polygon([1518,319; 1500,319; 1499,316; 1492,310; 1489,305; 1489,298
+                              1492,294; 1493,287; 1499,281; 1505,269; 1509,264; 1511,264
+                              1511,267; 1515,273; 1519,275; 1527,273; 1528,269; 1533,269
+                              1534,280; 1538,282; 1538,295; 1534,296; 1533,304; 1518,316])
+                       .Translated(Size(0,0) - Size(myHandCardPositions.[1]
+                                                  + cardSelectionOffset + cardElementOffset))
+                         |> PolygonMask }
+            { element = Thunder
+              sourceBitmap = example3
+              cardTopLeft = myHandCardPositions.[2]
+              mask = Polygon([34,62;  6,62;  6,58; 14,49; 19,48; 21,44; 21,36; 19,34; 21,29; 25,29; 36,19;
+                              30,14; 49, 1; 52, 1; 52, 5; 45,12; 45,16; 49,19; 49,23; 37,39; 37,44; 48,44])
+                        |> PolygonMask
+              }
+            ]
+        
+        symbolInfos |> Seq.iter saveElementSymbolFromExampleScreenshot
