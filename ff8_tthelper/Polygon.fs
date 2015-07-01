@@ -264,6 +264,18 @@ module PolygonTests =
 
     let InPolygon(polygon) = PointInPolygonConstraint(polygon)
 
+    let drawPolygon(p: Polygon, filePath: string, drawArea0: Rectangle option) =
+        let drawArea = defaultArg drawArea0 (Rectangle(p.BoundingBox.Location - Size(5,5),
+                                                       p.BoundingBox.Size + Size(10,10)))
+        let bitmap = new Bitmap(drawArea.Width, drawArea.Height, Imaging.PixelFormat.Format24bppRgb)
+        [ for y in drawArea.Y..drawArea.Y+drawArea.Height-1 do
+            for x in drawArea.X..drawArea.X+drawArea.Width-1 do
+                if p.Contains(Point(x,y)) then yield (x-drawArea.X, y-drawArea.Y, Color.White) ]
+            |> List.iter bitmap.SetPixel
+        bitmap.Save(filePath, Imaging.ImageFormat.Png)
+        bitmap.Dispose()
+
+
     [<TestFixture>]
     type ``Polygon test`` ()=
         let simple = Polygon([20,30; 25,25; 30,50; 40,20; 50,15; 50,55; 30,60; 15,50])
@@ -277,17 +289,6 @@ module PolygonTests =
 
         let shouldBeIn polygon p = p |> should be (InPolygon polygon)
         let shouldNotBeIn polygon p = p |> should not' (be (InPolygon polygon))
-
-        let drawPolygon name (p: Polygon) =
-            let bb = p.BoundingBox
-            let bitmap = new Bitmap(bb.X + bb.Width+5, bb.Y + bb.Height + 5, Imaging.PixelFormat.Format24bppRgb)
-            [ for y in 0..bitmap.Height-1 do
-                for x in 0..bitmap.Width-1 do
-                    if p.Contains(Point(x,y)) then yield (x,y,Color.White) ]
-                |> List.iter bitmap.SetPixel
-            bitmap.Save(@"D:\temp\"+name+".png", Imaging.ImageFormat.Png)
-            bitmap.Dispose()
-            
 
         [<Test>] member x.``in, 1 isect``()=                        (45,40) |> shouldBeIn    simple
         [<Test>] member x.``in, 3 isects``()=                       (22,40) |> shouldBeIn    simple
@@ -316,6 +317,6 @@ module PolygonTests =
         [<Test>]
         [<Ignore("For debugging only")>]
         member x.``draw bitmaps``()=
-            drawPolygon "simple" simple
-            drawPolygon "square3by3" square3by3
-            drawPolygon "nr8" nr8
+            drawPolygon(simple, @"D:\temp\simple.png", None)
+            drawPolygon(square3by3, @"D:\temp\square3by3.png", None)
+            drawPolygon(nr8, @"D:\temp\nr8.png", None)
