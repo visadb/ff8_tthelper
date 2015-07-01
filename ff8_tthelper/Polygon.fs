@@ -73,11 +73,15 @@ exception private Unreachable
 type Polygon(segments: Segment seq) =
 
     let connectedComponents =
+        let dySign (s: Segment) = sign (s.B.Y - s.A.Y)
         segments |> Seq.fold (fun (complete, current, currentFirstVertex: Point option) s ->
             if currentFirstVertex.IsNone then
                 (complete, Seq.singleton s, Some(s.A))
             else if currentFirstVertex.Value = s.B then
                 (Seq.append complete [Seq.append current [s]], Seq.empty, Option.None)
+            else if dySign s = 0 && dySign (Seq.last current) = 0 then
+                raise <| System.ArgumentException(
+                    sprintf "consecutive horizontal segments: %A %A" (Seq.last current) s)
             else if s.A <> (Seq.last current).B then
                 raise <| System.ArgumentException(
                     sprintf "consecutive segments not connected: %A %A" (Seq.last current) s)
@@ -88,7 +92,7 @@ type Polygon(segments: Segment seq) =
                     if Seq.isEmpty components then
                         raise <| System.ArgumentException("no connected components")
                     if not (Seq.isEmpty currentComponent) then
-                        raise <| System.ArgumentException(sprintf "Orphan segments: %A" currentComponent)
+                        raise <| System.ArgumentException(sprintf "orphan segments: %A" currentComponent)
                     components |> List.ofSeq
                 )
 
@@ -299,6 +303,8 @@ module PolygonTests =
         override this.WriteDescriptionTo(writer: MessageWriter) =
             writer.Write(sprintf "point %A is in polygon" point)
 
+    let throwWithMessage (m:string) (t:System.Type) = Throws.TypeOf(t).And.Message.EqualTo(m)
+
     let InPolygon(polygon) = PointInPolygonConstraint(polygon)
 
     let drawPolygon(p: Polygon, filePath: string, drawArea0: Rectangle option) =
@@ -366,3 +372,23 @@ module PolygonTests =
             drawPolygon(square3by3, @"D:\temp\square3by3.png", None)
             drawPolygon(nr8, @"D:\temp\nr8.png", None)
             drawPolygon(horizSegs, @"D:\temp\withHorizSegment.png", None)
+
+        [<Test>]
+        member x.``should notice consecutive non-connected segments`` ()=
+            (fun () -> Polygon([Segment((0,0),(5,0)); Segment((6,0),(6,10)); Segment((6,10),(0,0))]) |> ignore)
+                |> should (throwWithMessage "consecutive segments not connected: Seg [0,0->5,0] Seg [6,0->6,10]") typeof<System.ArgumentException>
+
+        [<Test>]
+        member x.``should notice consecutive horizontal segments`` ()=
+            (fun () -> Polygon([Segment((0,0),(3,0)); Segment((3,0),(5,0)); Segment((5,0),(5,10)); Segment((6,10),(0,0))]) |> ignore)
+                |> should (throwWithMessage "consecutive horizontal segments: Seg [0,0->3,0] Seg [3,0->5,0]") typeof<System.ArgumentException>
+
+        [<Test>]
+        member x.``should notice orphan segments`` ()=
+            (fun () -> Polygon([Segment((0,0),(5,0)); Segment((5,0),(5,10)); Segment((5,10),(0,0)); Segment((10,10),(15,15))]) |> ignore)
+                |> should (throwWithMessage "orphan segments: seq [Seg [10,10->15,15]]") typeof<System.ArgumentException>
+
+        [<Test>]
+        member x.``should notice lack of connected components`` ()=
+            (fun () -> Polygon([Segment((0,0),(5,0)); Segment((5,0),(5,10))]) |> ignore)
+                |> should (throwWithMessage "no connected components") typeof<System.ArgumentException>
