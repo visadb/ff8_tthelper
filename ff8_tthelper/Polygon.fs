@@ -77,12 +77,12 @@ type Polygon(segments: Segment seq) =
             if currentFirstVertex.IsNone then
                 (complete, Seq.singleton s, Some(s.A))
             else if currentFirstVertex.Value = s.B then
-                (Seq.append complete [Seq.append current (Seq.singleton s)], Seq.empty, Option.None)
+                (Seq.append complete [Seq.append current [s]], Seq.empty, Option.None)
             else if s.A <> (Seq.last current).B then
                 raise <| System.ArgumentException(
                     sprintf "consecutive segments not connected: %A %A" (Seq.last current) s)
             else
-                (complete, Seq.append current (Seq.singleton s), currentFirstVertex)
+                (complete, Seq.append current [s], currentFirstVertex)
         ) (Seq.empty, Seq.empty, Option.None)
             |> (fun (components, currentComponent, _) -> 
                     if Seq.isEmpty components then
@@ -100,9 +100,15 @@ type Polygon(segments: Segment seq) =
             s1.B = s2.A && not (dySignIsOpposite s1 s2)
 
         connectedComponents |> Seq.collect (fun connectedComponent ->
-            Seq.append connectedComponent [Seq.head connectedComponent] |> Seq.pairwise
-                |> Seq.map (fun (s1, s2) ->
-                    if isPotentialRayExitOrEntryVertex s1 s2 then
+            Seq.append connectedComponent [Seq.head connectedComponent; Seq.nth 1 connectedComponent]
+                |> Seq.windowed 3
+                |> Seq.map (fun segmentTriplet ->
+                    let s1,s2,s3 = match segmentTriplet with
+                                    | [|s1;s2;s3|] -> s1,s2,s3
+                                    | _ -> raise Unreachable
+                    if dySign s2 = 0 && not (dySignIsOpposite s1 s3) then
+                        s1
+                    else if not (dySignIsOpposite s1 s2) then
                         Segment(s1.A, s1.B, true, false)
                     else
                         s1
@@ -317,7 +323,8 @@ module PolygonTests =
             let upperHole = [30,15;35,20;35,30;30,35;25,30;25,20;30,15] |> Seq.pairwise |> Seq.map Segment
             let lowerHole: Segment seq = upperHole |> Seq.map (fun s -> s.Translated(Size(0,30)))
             Polygon (Seq.concat [outline; upperHole; lowerHole])
-        let withHorizSegment = Polygon([0,30; 10,20; 20,20; 25,10; 30,10; 30,30])
+        let horizSegs = Polygon([0,30; 10,20; 20,20; 25,10; 40,10; 40,30;
+                                     35,30; 35,15; 30,15; 25,25; 15,25; 10,30])
 
         let shouldBeIn polygon p = p |> should be (InPolygon polygon)
         let shouldNotBeIn polygon p = p |> should not' (be (InPolygon polygon))
@@ -346,10 +353,16 @@ module PolygonTests =
         [<Test>] member x.``out, in the left crack of 8``()=        (21,33) |> shouldNotBeIn nr8
         [<Test>] member x.``out, in the top hole of 8``()=          (30,25) |> shouldNotBeIn nr8
 
+        [<Test>] member x.``out, left of non-edge h-seg``()=            ( 5,20) |> shouldNotBeIn horizSegs
+        [<Test>] member x.``out, left of edge h-seg``()=                ( 5,10) |> shouldNotBeIn horizSegs
+        [<Test>] member x.``out, left of 2 bottom edge h-segs``()=      (-5,30) |> shouldNotBeIn horizSegs
+        [<Test>] member x.``out, left of bottom-side edge h-seg``()=    ( 0,15) |> shouldNotBeIn horizSegs
+        [<Test>] member x.``out, left of bottom-side non-edge h-seg``()=( 0,25) |> shouldNotBeIn horizSegs
+
         [<Test>]
         [<Ignore("For debugging only")>]
         member x.``draw bitmaps``()=
             drawPolygon(simple, @"D:\temp\simple.png", None)
             drawPolygon(square3by3, @"D:\temp\square3by3.png", None)
             drawPolygon(nr8, @"D:\temp\nr8.png", None)
-            drawPolygon(withHorizSegment, @"D:\temp\withHorizSegment.png", None)
+            drawPolygon(horizSegs, @"D:\temp\withHorizSegment.png", None)
