@@ -6,15 +6,19 @@ type HandIndex = int
 type GridCoords = int*int
 type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
 
-type Element = Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | None
+type Element =
+    Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | Unknown
+    static member All = [ Earth; Fire; Holy; Ice; Poison; Thunder; Water; Wind ]
+
 type Player = Me | Op
 type Card =
-    { powers: int[] ; powerModifier: int ; element: Element ; owner: Player}
+    { powers: int[]; powerModifier: int; owner: Player; element: Element option}
     override x.ToString() =
         let powersString = x.powers |> Array.map string |> String.concat ","
-        sprintf "Card %s %+d %A %A" powersString x.powerModifier x.element x.owner
+        let elementString = if x.element.IsNone then "None" else sprintf "%A" x.element.Value
+        sprintf "Card %s %+d %A %s" powersString x.powerModifier x.owner elementString
 
-type PlayGridSlot = Full of Card | Empty of Element
+type PlayGridSlot = Full of Card | Empty of Element option
 let playGridSlotToString slot =
     match slot with
         | Full c -> c.ToString()

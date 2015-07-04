@@ -78,7 +78,7 @@ type Polygon(segments: Segment seq) =
             if currentFirstVertex.IsNone then
                 (complete, Seq.singleton s, Some(s.A))
             else if currentFirstVertex.Value = s.B then
-                (Seq.append complete [Seq.append current [s]], Seq.empty, Option.None)
+                (Seq.append complete [Seq.append current [s]], Seq.empty, None)
             else if dySign s = 0 && dySign (Seq.last current) = 0 then
                 raise <| System.ArgumentException(
                     sprintf "consecutive horizontal segments: %A %A" (Seq.last current) s)
@@ -87,7 +87,7 @@ type Polygon(segments: Segment seq) =
                     sprintf "consecutive segments not connected: %A %A" (Seq.last current) s)
             else
                 (complete, Seq.append current [s], currentFirstVertex)
-        ) (Seq.empty, Seq.empty, Option.None)
+        ) (Seq.empty, Seq.empty, None)
             |> (fun (components, currentComponent, _) -> 
                     if Seq.isEmpty components then
                         raise <| System.ArgumentException("no connected components")

@@ -12,11 +12,11 @@ let main argv =
     //Bootstrap.saveCursorFromExampleScreenshot()
     //Bootstrap.saveDigitFilesFromExampleScreenshot()
     //Bootstrap.printDiffs()
-    Bootstrap.saveElementSymbolsFromExampleScreenshots()
+    //Bootstrap.saveElementSymbolsFromExampleScreenshots()
 
-    //let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
-    //printfn "%O" <| readGameState screenshot
-    //screenshot.Dispose()
+    let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
+    printfn "%O" <| readGameState screenshot
+    screenshot.Dispose()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed
