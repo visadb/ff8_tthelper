@@ -431,6 +431,20 @@ module Bootstrap =
               mask = Polygon([42,62; 30,62; 27,57; 22,57; 10,41; 10,37;  7,33;  7,21; 10,17; 11,12; 14, 7;
                               19, 7; 22, 3; 41, 3; 48,12; 48,29; 40,35; 40,42; 38,46; 37,51; 38,57])
                         |> PolygonMask }
+            { element = Earth
+              sourceBitmap = example4
+              cardTopLeft = myHandCardPositions.[4] + cardSelectionOffset
+              mask = Polygon([36,52; 15,52;  8,43;  8,25; 11,21; 11,16;
+                              24, 2; 43, 2; 51,11; 51,29; 48,34; 48,38])
+                        |> PolygonMask }
+            { element = Ice
+              sourceBitmap = example4
+              cardTopLeft = playGridCardPositions.[1,0]
+              mask = Polygon([37,56; 37,61; 33,57; 26,57; 23,61; 23,56; 26,54; 26,46; 19,37; 12,37; 10,42;
+                               8,42;  8,40; 11,36; 11,28;  7,24;  8,22; 10,22; 12,27; 18,27; 25,19; 25,11;
+                              23, 9; 23, 4; 26, 7; 34, 7; 37, 3; 37, 9; 34,11; 34,19; 41,28; 46,28; 49,22;
+                              51,22; 51,25; 47,29; 47,35; 51,40; 51,42; 49,42; 46,36; 42,36; 33,46; 33,54])
+                        |> PolygonMask }
             ]
         
         symbolInfos |> Seq.iter saveElementSymbolFromExampleScreenshot
