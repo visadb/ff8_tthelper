@@ -154,6 +154,11 @@ type Polygon(segments: Segment seq) =
     member this.Translated (by: Size): Polygon =
         Polygon(segments |> Seq.map (fun s -> s.Translated by))
 
+    member this.Segments = segments
+
+    member this.Merge (other: Polygon): Polygon =
+        Polygon(Seq.concat [other.Segments; this.Segments])
+
     override this.ToString(): string =
         sprintf "Polygon (%A)" segments
             

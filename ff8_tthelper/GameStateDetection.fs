@@ -407,20 +407,30 @@ module Bootstrap =
             { element = Fire
               sourceBitmap = example3
               cardTopLeft = myHandCardPositions.[1] + cardSelectionOffset
-              mask = Polygon([1518,319; 1500,319; 1499,316; 1492,310; 1489,305; 1489,298
-                              1492,294; 1493,287; 1499,281; 1505,269; 1509,264; 1511,264
-                              1511,267; 1515,273; 1519,275; 1527,273; 1528,269; 1533,269
-                              1534,280; 1538,282; 1538,295; 1534,296; 1533,304; 1518,316])
-                       .Translated(Size(0,0) - Size(myHandCardPositions.[1]
-                                                  + cardSelectionOffset + cardElementOffset))
+              mask = Polygon([33,62; 15,62; 14,59;  7,53;  4,48;  4,41;  7,37;  8,30;
+                              14,24; 20,12; 24, 7; 26, 7; 26,10; 30,16; 34,18; 42,16;
+                              43,12; 48,12; 49,23; 53,25; 53,38; 49,39; 48,47; 33,59])
                          |> PolygonMask }
             { element = Thunder
               sourceBitmap = example3
               cardTopLeft = myHandCardPositions.[2]
               mask = Polygon([34,62;  6,62;  6,58; 14,49; 19,48; 21,44; 21,36; 19,34; 21,29; 25,29; 36,19;
                               30,14; 49, 1; 52, 1; 52, 5; 45,12; 45,16; 49,19; 49,23; 37,39; 37,44; 48,44])
-                        |> PolygonMask
-              }
+                        |> PolygonMask }
+            { element = Poison
+              sourceBitmap = example3
+              cardTopLeft = myHandCardPositions.[3]
+              mask =
+                let topLeft = Polygon([16,28; 12,28; 7,23; 7,16; 11,11; 16,11; 20,16; 20,23])
+                let topRight = Polygon([38,22; 36,19; 36,15; 39,12; 41,12; 44,15; 44,19; 41,22])
+                let bottom = Polygon([36,61; 23,61; 19,56; 19,40; 23,36; 36,36; 40,40; 40,56])
+                PolygonMask <| topLeft.Merge(topRight).Merge(bottom)}
+            { element = Wind
+              sourceBitmap = example3
+              cardTopLeft = myHandCardPositions.[4]
+              mask = Polygon([42,62; 30,62; 27,57; 22,57; 10,41; 10,37;  7,33;  7,21; 10,17; 11,12; 14, 7;
+                              19, 7; 22, 3; 41, 3; 48,12; 48,29; 40,35; 40,42; 38,46; 37,51; 38,57])
+                        |> PolygonMask }
             ]
         
         symbolInfos |> Seq.iter saveElementSymbolFromExampleScreenshot
