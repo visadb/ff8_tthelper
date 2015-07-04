@@ -10,27 +10,31 @@ let screenshotDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\screens
 
 let private myHandPosition = Point(1381, 93)
 let private opponentHandPosition = Point(331, 94)
-let private opponentHandCardOffsets = [| 0 ; 154 ; 308; 462 ; 616 |] |> Array.map (fun y -> Size(0, y))
-let private myHandCardOffsets = [| 0 ; 154 ; 309; 463 ; 617 |] |> Array.map (fun y -> Size(0, y))
+let private opponentHandCardOffsets = [|0; 154; 308; 462; 616|] |> Array.map (fun y -> Size(0, y))
+let private myHandCardOffsets = [|0; 154; 309; 463; 617|] |> Array.map (fun y -> Size(0, y))
 let private cardSelectionOffset = Size(-45, 0)
-let (private fieldCardXOffsets, private fieldCardYOffsets) = ([| 0 ; 240 ; 480 |], [| 0 ; 308 ; 617 |])
+let (private fieldCardXOffsets, private fieldCardYOffsets) = ([|0; 240; 480|], [|0; 308; 617|])
 
 let private digitSize = Size(26, 36)
 let private topDigitOffset = Size(15, 0)
 let private leftDigitOffset = Size(0, 39)
 let private rightDigitOffset = Size(30, 39)
 let private bottomDigitOffset = Size(15, 78)
-let private cardPowerOffsets = [| topDigitOffset ; leftDigitOffset ; rightDigitOffset ; bottomDigitOffset |]
+let private cardPowerOffsets = [|topDigitOffset; leftDigitOffset; rightDigitOffset; bottomDigitOffset|]
 
 let private powerModifierOffset = Size(66, 138)
 let private powerModifierSize = Size(45, 20)
 
 let private opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let private myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
-let private playGridCardPositions = array2D [ for row in 0..2 -> [ for col in 0..2 -> Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) ] ]
+let private playGridCardPositions =
+    array2D [ for row in 0..2 ->
+                [ for col in 0..2 ->
+                    Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) ] ]
 
 let private cursorSize = Size(67, 46)
-let private cardSelectionCursorPositions = [| 258; 402; 546; 690; 834 |] |> Array.map (fun y -> Point(1260, y))
+let private cardSelectionCursorPositions =
+    [| 258; 402; 546; 690; 834 |] |> Array.map (fun y -> Point(1260, y))
 let private targetSelectionCursorPositions =
     array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
@@ -43,15 +47,18 @@ let copyBitmap (bitmap: Bitmap) =
     copy
 
 let private getFilteredSubBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFilter: Color -> bool) =
-    let subBitmap = new Bitmap(rect.Width, rect.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
+    let subBitmap = new Bitmap(rect.Width, rect.Height, Imaging.PixelFormat.Format32bppArgb)
     seq { for y in 0 .. rect.Height-1 do
             for x in 0 .. rect.Width-1 -> (x, y, screenshot.GetPixel(rect.X + x, rect.Y + y)) }
-        |> Seq.iter (fun (x, y, color) -> if pixelFilter color then subBitmap.SetPixel(x,y,color) else subBitmap.SetPixel(x,y,Color.Black))
+        |> Seq.iter (fun (x, y, color) ->
+            if pixelFilter color then subBitmap.SetPixel(x,y,color)
+            else subBitmap.SetPixel(x,y,Color.Black))
     subBitmap
     
 let isWhitishPixel minBr maxDiff (color: Color) =
     let r, g, b = (int)color.R, (int)color.G, (int)color.B
-    r > minBr && g > minBr && b > minBr && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
+    r > minBr && g > minBr && b > minBr
+ && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
 
 let private getDigitBitmap screenshot point =
     getFilteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 10
@@ -60,29 +67,35 @@ let private getCursorBitmap screenshot point =
     getFilteredSubBitmap screenshot (Rectangle(point, cursorSize)) <| isWhitishPixel 200 10
 
 let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
-    getFilteredSubBitmap screenshot (Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)) <| isWhitishPixel 160 10
+    let rect = Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)
+    getFilteredSubBitmap screenshot rect (isWhitishPixel 160 10)
 
 let private getCardElementBitmap screenshot (cardTopLeft: Point) =
-    getFilteredSubBitmap screenshot (Rectangle(cardTopLeft + cardElementOffset, cardElementSize)) (fun _ -> true)
+    let rect = Rectangle(cardTopLeft + cardElementOffset, cardElementSize)
+    getFilteredSubBitmap screenshot rect (fun _ -> true)
 
-let private bitmapDifference (bitmap1: Bitmap) (bitmap2: Bitmap): float =
+let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     let pixelAbsDiffAndMaxDiff(pixel1: Color, pixel2: Color): int*int =
         if pixel1.A = 0uy || pixel2.A = 0uy then
             0, 0
         else
-            (abs((int)pixel2.R - (int)pixel1.R) + abs((int)pixel2.G - (int)pixel1.G) + abs((int)pixel2.B - (int)pixel1.B)), 3*255
+            (abs((int)pixel2.R - (int)pixel1.R)
+           + abs((int)pixel2.G - (int)pixel1.G)
+           + abs((int)pixel2.B - (int)pixel1.B)), 3*255
 
-    let pixelDiffsAndMaxDiffs = seq { for y in 0..(bitmap1.Height-1) do
-                                        for x in 0..(bitmap1.Width-1) do
-                                            yield pixelAbsDiffAndMaxDiff(bitmap1.GetPixel(x,y),bitmap2.GetPixel(x,y)) }
-    let (absDiff, maxAbsDiff) = pixelDiffsAndMaxDiffs |> Seq.reduce (fun (d1,m1) (d2,m2) -> (d1+d2, m1+m2))
+    let pixelDiffsAndMaxDiffs =
+        seq { for y in 0..(bitmap1.Height-1) do
+                for x in 0..(bitmap1.Width-1) do
+                    yield pixelAbsDiffAndMaxDiff(bitmap1.GetPixel(x,y),bitmap2.GetPixel(x,y)) }
+    let (absDiff, maxAbsDiff) =
+        pixelDiffsAndMaxDiffs |> Seq.reduce (fun (d1,m1) (d2,m2) -> (d1+d2, m1+m2))
     if maxAbsDiff = 0 then 0.0
     else (float)absDiff / (float)maxAbsDiff
 
 let private modelCursor = copyBitmap <| new Bitmap(imageDir + "cursor.png")
 
 let private isCursorAtPoint screenshot point: bool =
-    let diff = bitmapDifference modelCursor (getCursorBitmap screenshot point)
+    let diff = bitmapDiff modelCursor (getCursorBitmap screenshot point)
     diff < 0.10
 
 let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
@@ -105,7 +118,8 @@ let private readCardOwner (screenshot: Bitmap) (cardPos: Point) =
         else (x+1, testArea.Y)
 
     let pixelCounts = Seq.unfold (fun ((x,y),(me,op)) ->
-            if (max me op) >= 50 || (x,y) = (testArea.X+testArea.Width-1, testArea.Y+testArea.Height-1) then None
+            let lastCoord = (testArea.X+testArea.Width-1, testArea.Y+testArea.Height-1)
+            if (max me op) >= 50 || (x,y) = lastCoord then None
             else let pixel = screenshot.GetPixel(x,y)
                  let counts = (me + isMyPixel pixel, op + isOpPixel pixel)
                  (Some (counts, (incrementCoords (x,y), counts)))) ((testArea.X, testArea.Y), (0, 0))
@@ -122,8 +136,8 @@ let modelPowerModifierPlus =  copyBitmap <| new Bitmap(imageDir + "power_modifie
 let private readPowerModifier screenshot (cardTopLeft: Point) =
     let actual = getPowerModifierBitmap screenshot cardTopLeft
 
-    let minusDiff = bitmapDifference actual modelPowerModifierMinus
-    let plusDiff = lazy bitmapDifference actual modelPowerModifierPlus
+    let minusDiff = bitmapDiff actual modelPowerModifierMinus
+    let plusDiff = lazy bitmapDiff actual modelPowerModifierPlus
 
     if minusDiff < 0.12 then -1
     else if plusDiff.Force() < 0.12 then +1
@@ -132,13 +146,14 @@ let private readPowerModifier screenshot (cardTopLeft: Point) =
 let private modelCardElements: (Element*Bitmap) list =
     Element.All
         |> List.filter (fun e -> e <> Holy && e <> Water && e <> Unknown)
-        |> List.map (fun e -> (e, new Bitmap(imageDir + "element_" + ((sprintf "%A" e).ToLower()) + ".png")))
+        |> List.map (fun e ->
+            (e, new Bitmap(imageDir + "element_" + ((sprintf "%A" e).ToLower()) + ".png")))
 
 let private readCardElement screenshot (cardTopLeft: Point): Element option =
     let cardElementBm = getCardElementBitmap screenshot cardTopLeft
     let candidatesWithDiffs =
         modelCardElements
-            |> List.map (fun (e, modelBitmap) -> (e, bitmapDifference cardElementBm modelBitmap))
+            |> List.map (fun (e, modelBitmap) -> (e, bitmapDiff cardElementBm modelBitmap))
             |> List.filter (snd >> ((>) 0.10))
 
     if List.isEmpty candidatesWithDiffs then
@@ -152,16 +167,20 @@ let private modelDigits: Bitmap list =
     [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
 
 let private readDigitValue digitBitmap: int option =
-    let candidatesWithDiffs = modelDigits 
-                                |> List.mapi (fun i modelDigit -> (i+1, bitmapDifference digitBitmap modelDigit))
-                                |> List.filter (snd >> ((>) 0.16))
+    let candidatesWithDiffs =
+        modelDigits |> List.mapi (fun i modelDigit -> (i+1, bitmapDiff digitBitmap modelDigit))
+                    |> List.filter (snd >> ((>) 0.16))
 
     if List.isEmpty candidatesWithDiffs then
         None
     else
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let private readCard screenshot (owner: Player option) (powerModifier: int option) (element: Element option) (cardTopLeftCorner: Point): Card option =
+let private readCard screenshot
+                     (owner: Player option)
+                     (powerModifier: int option)
+                     (element: Element option)
+                     (cardTopLeftCorner: Point): Card option =
     let powers = cardPowerOffsets |> Array.map (((+) cardTopLeftCorner) 
                                                 >> (getDigitBitmap screenshot)
                                                 >> readDigitValue)
@@ -177,7 +196,10 @@ let private readCard screenshot (owner: Player option) (powerModifier: int optio
         Some { powers = powers |> Array.map Option.get; powerModifier = cardPowerModifier
                element = cardElement ; owner = cardOwner }
 
-let private readHand screenshot owner (handCardBasePositions: Point[]) (selectedIndex: int option): Hand =
+let private readHand screenshot
+                     owner
+                     (handCardBasePositions: Point[])
+                     (selectedIndex: int option): Hand =
     let shiftCardIfSelected i (cardPos: Point) =
         match selectedIndex with
             | Some(index) when i = index -> cardPos + cardSelectionOffset
@@ -201,8 +223,10 @@ let private readTurnPhase screenshot =
             |> Array.tryFindIndex (fun pos ->
                 (readCard screenshot (Some Me) (Some 0) (Some Element.Unknown) pos).IsSome)
     let targetSelectionPosition =
-        lazy ([ for row in 0..2 do for col in 0..2 -> (col, row) ]
-                |> List.tryFind (fun (col, row) -> isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
+        lazy ([ for row in 0..2 do
+                    for col in 0..2 -> (col, row) ]
+                |> List.tryFind (fun (col, row) ->
+                        isCursorAtPoint screenshot targetSelectionCursorPositions.[row,col]))
 
     match selectedCardIndex with
         | None -> OpponentsTurn
@@ -240,9 +264,11 @@ module Bootstrap =
            [(3,0,20,5); (9,5,16,31); (0,27,9,9)];
            [(0,19,12,10); (2,14,6,5); (5,10,6,5); (7,4,5,7); (12,0,12,19); (12,19,13,17)];
            [(4,0,20,11); (3,11,11,11); (12,13,13,9); (15,21,10,7); (2,26,8,10); (10,29,7,7)];
-           [(12,0,8,3); (8,3,9,3); (6,6,10,3); (3,9,11,3); (2,12,12,3); (1,15,11,4); (0,19,12,17); (12,30,14,6); (17,21,9,9); (15,13,11,8)];
+           [(12,0,8,3); (8,3,9,3); (6,6,10,3); (3,9,11,3); (2,12,12,3); (1,15,11,4); (0,19,12,17);
+            (12,30,14,6); (17,21,9,9); (15,13,11,8)];
            [(0,0,23,11); (10,8,10,15); (6,23,8,13)];
-           [(1,0,23,4); (0,4,11,6); (15,4,9,6); (0,10,23,12); (0,20,9,11); (13,20,12,5); (15,25,10,6); (1,31,21,4)];
+           [(1,0,23,4); (0,4,11,6); (15,4,9,6); (0,10,23,12); (0,20,9,11); (13,20,12,5); (15,25,10,6);
+            (1,31,21,4)];
            [(0,0,12,23); (15,0,11,21); (11,20,14,5); (10,25,13,4); (9,29,11,3); (5,32,10,4)]
            |] |> Array.map (List.map Rectangle)
 
@@ -268,11 +294,13 @@ module Bootstrap =
     let blurBitmap (bitmap: Bitmap) =
         let blurred = new Bitmap(bitmap.Width, bitmap.Height, bitmap.PixelFormat)
         rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
-            let averageCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
-            let blurredPixel = averageCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
+            let avgCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
+            let blurredPixel =
+                avgCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
                                     if p.A = 0uy then (sr,sg,sb,c)
-                                    else (sr+(int)p.R, sg+(int)p.G, sb+(int)p.G, c+1)
-                                ) (0,0,0,0) |> (fun (sr,sg,sb,c) -> if c=0 then Color.FromArgb(0,0,0,0) else Color.FromArgb(sr/c, sg/c, sb/c))
+                                    else (sr+(int)p.R, sg+(int)p.G, sb+(int)p.G, c+1)) (0,0,0,0)
+                          |> (fun (sr,sg,sb,c) -> if c=0 then Color.FromArgb(0,0,0,0)
+                                                  else Color.FromArgb(sr/c, sg/c, sb/c))
             blurred.SetPixel(x, y, blurredPixel)
         )
         bitmap.Dispose()
@@ -281,11 +309,11 @@ module Bootstrap =
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
         let masks = digitMasks.[int <| digitName.Substring(0, 1)]
-        let digitBitmapFromScreenshot = digitBitmap.Clone() :?> Bitmap
+        let digitFromScreenshot = digitBitmap.Clone() :?> Bitmap
         maskBitmap (RectangleMask masks) digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmap.Dispose()
-        digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitBitmapFromScreenshot)
+        digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitFromScreenshot)
 
     let saveDigitFilesFromExampleScreenshot() =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg")
@@ -350,15 +378,17 @@ module Bootstrap =
         for modelDigit in 1 .. 9 do
             for screenshotDigitName in digitNames do
                 let modelDigitName = sprintf "%d_1" modelDigit
-                let modelDigitBitmap = new Bitmap(imageDir + "digit"+modelDigitName+".png")
-                let diff = bitmapDifference modelDigitBitmap (digitBitmapsFromScreenshot.Item screenshotDigitName)
+                let modelBitmap = new Bitmap(imageDir + "digit"+modelDigitName+".png")
+                let diff = bitmapDiff modelBitmap (digitBitmapsFromScreenshot.Item screenshotDigitName)
                 diffs <- (diff, modelDigitName, screenshotDigitName) :: diffs
                 printfn "DIFFERENCE B/W %s & %s: %f" modelDigitName screenshotDigitName diff
             done
             printfn ""
         done
-        let maxMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] = n2.[0]) |> List.maxBy (fun (d, _, _) -> d)
-        let minNonMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] <> n2.[0]) |> List.minBy (fun (d, _, _) -> d)
+        let maxMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] = n2.[0])
+                                |> List.maxBy (fun (d, _, _) -> d)
+        let minNonMatching = diffs |> List.filter (fun (_, n1, n2) -> n1.[0] <> n2.[0])
+                                   |> List.minBy (fun (d, _, _) -> d)
         printfn "max matching diff = %A" maxMatching
         printfn "min non-matching diff = %A" minNonMatching 
 
@@ -366,7 +396,8 @@ module Bootstrap =
         let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_1.jpg") |> blurBitmap
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
-        let cursorMask = RectangleMask [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)]
+        let cursorMask =
+            RectangleMask [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)]
         maskBitmap cursorMask cursorBitmap
         cursorBitmap.Save(imageDir + "cursor.png", Imaging.ImageFormat.Png)
         cursorBitmap.Dispose()
@@ -388,15 +419,17 @@ module Bootstrap =
         let screenshotWithPlus = new Bitmap(screenshotDir + @"in-game\elemental_+1_in_0_0.jpg")
         let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
-        let plusBitmap = getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0] |> blurBitmap
+        let plusBitmap =
+            getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(1,2,42,11); Rectangle(14,0,15,20)]) plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
-        let minusBitmap = getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0] |> blurBitmap
+        let minusBitmap =
+            getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(5,2,39,16)]) minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
-        printfn "Power modifier bitmap difference: %f" <| bitmapDifference plusBitmap minusBitmap
+        printfn "Power modifier bitmap difference: %f" <| bitmapDiff plusBitmap minusBitmap
 
         plusBitmap.Dispose()
         minusBitmap.Dispose()
@@ -433,8 +466,8 @@ module Bootstrap =
             { element = Thunder
               sourceBitmap = example3
               cardTopLeft = myHandCardPositions.[2]
-              mask = Polygon([34,62;  6,62;  6,58; 14,49; 19,48; 21,44; 21,36; 19,34; 21,29; 25,29; 36,19;
-                              30,14; 49, 1; 52, 1; 52, 5; 45,12; 45,16; 49,19; 49,23; 37,39; 37,44; 48,44])
+              mask = Polygon([34,62; 6,62; 6,58; 14,49; 19,48; 21,44; 21,36; 19,34; 21,29; 25,29; 36,19;
+                              30,14; 49,1; 52,1; 52, 5; 45,12; 45,16; 49,19; 49,23; 37,39; 37,44; 48,44])
                         |> PolygonMask }
             { element = Poison
               sourceBitmap = example3
@@ -447,7 +480,7 @@ module Bootstrap =
             { element = Wind
               sourceBitmap = example3
               cardTopLeft = myHandCardPositions.[4]
-              mask = Polygon([42,62; 30,62; 27,57; 22,57; 10,41; 10,37;  7,33;  7,21; 10,17; 11,12; 14, 7;
+              mask = Polygon([42,62; 30,62; 27,57; 22,57; 10,41; 10,37;  7,33;  7,21; 10,17; 11,12; 14,7
                               19, 7; 22, 3; 41, 3; 48,12; 48,29; 40,35; 40,42; 38,46; 37,51; 38,57])
                         |> PolygonMask }
             { element = Earth
