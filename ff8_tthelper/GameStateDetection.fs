@@ -38,8 +38,9 @@ let private cardSelectionCursorPositions =
 let private targetSelectionCursorPositions =
     array2D [ for y in [258; 546; 834] -> [ for x in [630; 870; 1110] -> Point(x,y) ] ]
 
-let private cardElementSize = Size(54, 64)
+let private elementSize = Size(54, 64)
 let private cardElementOffset = Size(149, 10)
+let private playGridSlotElementOffset = Size(76, 107)
 
 let copyBitmap (bitmap: Bitmap) =
     let copy = new Bitmap(bitmap)
@@ -71,7 +72,11 @@ let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
     getFilteredSubBitmap screenshot rect (isWhitishPixel 160 10)
 
 let private getCardElementBitmap screenshot (cardTopLeft: Point) =
-    let rect = Rectangle(cardTopLeft + cardElementOffset, cardElementSize)
+    let rect = Rectangle(cardTopLeft + cardElementOffset, elementSize)
+    getFilteredSubBitmap screenshot rect (fun _ -> true)
+
+let private getPlayGridSlotElementBitmap screenshot (cardTopLeft: Point) =
+    let rect = Rectangle(cardTopLeft + playGridSlotElementOffset, elementSize)
     getFilteredSubBitmap screenshot rect (fun _ -> true)
 
 let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
@@ -500,3 +505,16 @@ module Bootstrap =
             ]
         
         symbolInfos |> Seq.iter saveElementSymbolFromExampleScreenshot
+
+    let saveEmptyPlayGridSlotElements() =
+        let ss1 = new Bitmap(screenshotDir + @"in-game\target_selection_0_0.jpg")
+        let ss2 = new Bitmap(screenshotDir + @"in-game\elements\2015-06-15_00062.jpg")
+
+        [ for row in [0..2] do
+            for col in [0..2] do if (row,col) <> (0,0) then yield (row,col) ]
+                |> List.iter (fun (row, col) ->
+                    let bmap = getPlayGridSlotElementBitmap ss1 playGridCardPositions.[row,col]
+                    bmap.Save(sprintf "%splay_grid_slot_element_empty_%d_%d.png" imageDir row col))
+
+        let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[0,0]
+        b0_0.Save(imageDir + "play_grid_slot_element_empty_0_0.png")
