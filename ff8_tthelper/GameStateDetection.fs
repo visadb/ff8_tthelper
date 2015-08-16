@@ -56,6 +56,43 @@ let private getFilteredSubBitmap (screenshot: Bitmap) (rect: Rectangle) (pixelFi
             else subBitmap.SetPixel(x,y,Color.Black))
     subBitmap
     
+type BitmapMask =
+    RectangleMask of Rectangle list | PolygonMask of Polygon
+
+    member this.Contains ((x,y): int*int): bool =
+        match this with
+           | RectangleMask masks -> masks |> List.exists (fun rect -> rect.Contains(x, y))
+           | PolygonMask polygon -> polygon.Contains(x, y)
+        
+let private rectanglePoints (size: Size) =
+    seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
+
+
+let private maskBitmapImpl (reverse: bool) (mask: BitmapMask) (bitmap: Bitmap) =
+    rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+        if reverse = mask.Contains(x,y) then
+            bitmap.SetPixel(x,y, Color.Transparent)
+    )
+
+let private maskBitmap = maskBitmapImpl false
+let private maskBitmapReverse = maskBitmapImpl true
+
+let private blurBitmap (bitmap: Bitmap) =
+    let blurred = new Bitmap(bitmap.Width, bitmap.Height, bitmap.PixelFormat)
+    rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+        let avgCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
+        let blurredPixel =
+            avgCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
+                                if p.A = 0uy then (sr,sg,sb,c)
+                                else (sr+(int)p.R, sg+(int)p.G, sb+(int)p.G, c+1)) (0,0,0,0)
+                      |> (fun (sr,sg,sb,c) -> if c=0 then Color.FromArgb(0,0,0,0)
+                                              else Color.FromArgb(sr/c, sg/c, sb/c))
+        blurred.SetPixel(x, y, blurredPixel)
+    )
+    bitmap.Dispose()
+    blurred
+
+    
 let isWhitishPixel minBr maxDiff (color: Color) =
     let r, g, b = (int)color.R, (int)color.G, (int)color.B
     r > minBr && g > minBr && b > minBr
@@ -79,14 +116,31 @@ let private getPlayGridSlotElementBitmap screenshot (cardTopLeft: Point) =
     let rect = Rectangle(cardTopLeft + playGridSlotElementOffset, elementSize)
     getFilteredSubBitmap screenshot rect (fun _ -> true)
 
+let private playGridSlotElementMasks = [
+        PolygonMask <| Polygon([0,56; 25,56; 25,58; 27,58; 27,63; 0,63])
+        PolygonMask <| Polygon([0,36; 25,36; 25,38; 28,38; 28,52; 25,52; 25,54; 24,54; 24,56; 22,56;
+                                22,59; 21,59; 21,61; 18,61; 18,63; 0,63])
+        PolygonMask <| Polygon([0,15; 27,15; 28,16; 28,30; 25,34; 25,35; 20,40; 19,40; 19,43; 3,43;
+                                3,45; 6,48; 6,63; 0,63])
+    ]
+let private emptyElementlessPlayGridSlotBitmaps =
+    array2D [ for row in [0..2] do
+                yield [ for col in [0..2] do
+                        let b = copyBitmap <| new Bitmap(imageDir + "play_grid_slot_element_empty_"+row.ToString()+"_"+col.ToString()+".png")
+                        maskBitmapReverse playGridSlotElementMasks.[row] b
+                        yield b]]
+
+let private pixelDiff (pixel1: Color) (pixel2: Color) =
+    abs((int)pixel2.R - (int)pixel1.R)
+  + abs((int)pixel2.G - (int)pixel1.G)
+  + abs((int)pixel2.B - (int)pixel1.B)
+
 let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     let pixelAbsDiffAndMaxDiff(pixel1: Color, pixel2: Color): int*int =
         if pixel1.A = 0uy || pixel2.A = 0uy then
             0, 0
         else
-            (abs((int)pixel2.R - (int)pixel1.R)
-           + abs((int)pixel2.G - (int)pixel1.G)
-           + abs((int)pixel2.B - (int)pixel1.B)), 3*255
+            pixelDiff pixel1 pixel2, 3*255
 
     let pixelDiffsAndMaxDiffs =
         seq { for y in 0..(bitmap1.Height-1) do
@@ -96,6 +150,30 @@ let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
         pixelDiffsAndMaxDiffs |> Seq.reduce (fun (d1,m1) (d2,m2) -> (d1+d2, m1+m2))
     if maxAbsDiff = 0 then 0.0
     else (float)absDiff / (float)maxAbsDiff
+
+let private getPlayGridSlotElementOnlyBitmap screenshot row col: Bitmap option =
+    // Get element pixels only by undoing compositing:
+    // C_o = C_a*alpha_a + C_b*alpha_b*(1-alpha_a)
+    // ==> C_a = (C_o - C_b*(1-alpha_a))/alpha_a
+    // alpha_b = 1.0, C_o = actual screenshot color, C_b = empty screenshot color
+    let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[row,col]
+    let elementless = emptyElementlessPlayGridSlotBitmaps.[row,col]
+
+    if bitmapDiff actual elementless < 0.03 then
+        None
+    else
+        let backgroundless = new Bitmap(elementSize.Width, elementSize.Height, Imaging.PixelFormat.Format32bppArgb)
+        let alpha_a = 0.64;
+        let decomposite o b = max 0 <| (int)o - (int)((float)b*(1.0-alpha_a)/alpha_a)
+        seq { for y in 0 .. elementSize.Height-1 do
+                for x in 0 .. elementSize.Width-1 -> (x, y, actual.GetPixel(x, y), elementless.GetPixel(x,y)) }
+            |> Seq.iter (fun (x, y, c_o, c_b) ->
+                if c_b.A = 0uy || (pixelDiff c_o c_b <= 15) then
+                    backgroundless.SetPixel(x, y, Color.Transparent)
+                else
+                    let elementColor = Color.FromArgb(decomposite c_o.R c_b.R, decomposite c_o.G c_b.G, decomposite c_o.B c_b.B)
+                    backgroundless.SetPixel(x, y, elementColor))
+        Some backgroundless
 
 let private modelCursor = copyBitmap <| new Bitmap(imageDir + "cursor.png")
 
@@ -213,11 +291,21 @@ let private readHand screenshot
         |> Array.mapi (shiftCardIfSelected)
         |> Array.map (readCard screenshot (Some owner) (Some 0) None)
 
+let private readEmptyPlayGridSlotElement screenshot row col: Element option =
+    let elementBitmap = getPlayGridSlotElementOnlyBitmap screenshot row col
+    if elementBitmap.IsSome then
+        Some Unknown
+    else
+        None
+
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
         playGridCardPositions
-            |> Array2D.map ((readCard screenshot None None (Some Element.Unknown)) >> (fun oc ->
-                    match oc with Some(c) -> Full c | None -> Empty None)) }
+            |> Array2D.map (readCard screenshot None None (Some Element.Unknown))
+            |> Array2D.mapi (fun r c oc ->
+                    match oc with
+                        | Some(c) -> Full c
+                        | None -> Empty (readEmptyPlayGridSlotElement screenshot r c)) }
 
 let private swap f a b = f b a
 
@@ -276,40 +364,6 @@ module Bootstrap =
             (1,31,21,4)];
            [(0,0,12,23); (15,0,11,21); (11,20,14,5); (10,25,13,4); (9,29,11,3); (5,32,10,4)]
            |] |> Array.map (List.map Rectangle)
-
-    let rectanglePoints (size: Size) =
-        seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
-
-    type BitmapMask =
-        RectangleMask of Rectangle list | PolygonMask of Polygon
-
-        member this.Contains ((x,y): int*int): bool =
-            match this with
-               | RectangleMask masks -> masks |> List.exists (fun rect -> rect.Contains(x, y))
-               | PolygonMask polygon -> polygon.Contains(x, y)
-            
-
-    let maskBitmap (mask: BitmapMask) (bitmap: Bitmap) =
-        let transparent = Color.FromArgb(0, 0, 0, 0)
-        rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
-            if not (mask.Contains(x,y)) then
-                bitmap.SetPixel(x,y, transparent)
-        )
-
-    let blurBitmap (bitmap: Bitmap) =
-        let blurred = new Bitmap(bitmap.Width, bitmap.Height, bitmap.PixelFormat)
-        rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
-            let avgCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
-            let blurredPixel =
-                avgCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
-                                    if p.A = 0uy then (sr,sg,sb,c)
-                                    else (sr+(int)p.R, sg+(int)p.G, sb+(int)p.G, c+1)) (0,0,0,0)
-                          |> (fun (sr,sg,sb,c) -> if c=0 then Color.FromArgb(0,0,0,0)
-                                                  else Color.FromArgb(sr/c, sg/c, sb/c))
-            blurred.SetPixel(x, y, blurredPixel)
-        )
-        bitmap.Dispose()
-        blurred
 
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: Bitmap) =
         let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
