@@ -123,12 +123,16 @@ let private playGridSlotElementMasks = [
         PolygonMask <| Polygon([0,15; 27,15; 28,16; 28,30; 25,34; 25,35; 20,40; 19,40; 19,43; 3,43;
                                 3,45; 6,48; 6,63; 0,63])
     ]
-let private emptyElementlessPlayGridSlotBitmaps =
+let private getEmptyElementlessPlayGridSlotBitmaps doMask =
     array2D [ for row in [0..2] do
                 yield [ for col in [0..2] do
                         let b = copyBitmap <| new Bitmap(imageDir + "play_grid_slot_element_empty_"+row.ToString()+"_"+col.ToString()+".png")
-                        maskBitmapReverse playGridSlotElementMasks.[row] b
+                        if doMask then
+                            maskBitmapReverse playGridSlotElementMasks.[row] b
                         yield b]]
+
+let private emptyElementlessPlayGridSlotBitmaps = getEmptyElementlessPlayGridSlotBitmaps true
+let private emptyElementlessPlayGridSlotBitmapsWithoutMasks = getEmptyElementlessPlayGridSlotBitmaps false
 
 let private pixelDiff (pixel1: Color) (pixel2: Color) =
     abs((int)pixel2.R - (int)pixel1.R)
@@ -151,13 +155,16 @@ let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     if maxAbsDiff = 0 then 0.0
     else (float)absDiff / (float)maxAbsDiff
 
-let private getPlayGridSlotElementOnlyBitmap screenshot row col: Bitmap option =
+let private getPlayGridSlotElementOnlyBitmapImpl doMask screenshot row col: Bitmap option =
     // Get element pixels only by undoing compositing:
     // C_o = C_a*alpha_a + C_b*alpha_b*(1-alpha_a)
     // ==> C_a = (C_o - C_b*(1-alpha_a))/alpha_a
     // alpha_b = 1.0, C_o = actual screenshot color, C_b = empty screenshot color
     let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[row,col]
-    let elementless = emptyElementlessPlayGridSlotBitmaps.[row,col]
+    let elementless = if doMask then emptyElementlessPlayGridSlotBitmaps.[row,col]
+                                else emptyElementlessPlayGridSlotBitmapsWithoutMasks.[row,col]
+    //actual.Save(sprintf @"D:\temp\actual%d_%d.png" row col)
+    //elementless.Save(sprintf @"D:\temp\elementless%d_%d.png" row col)
 
     if bitmapDiff actual elementless < 0.03 then
         None
@@ -174,6 +181,9 @@ let private getPlayGridSlotElementOnlyBitmap screenshot row col: Bitmap option =
                     let elementColor = Color.FromArgb(decomposite c_o.R c_b.R, decomposite c_o.G c_b.G, decomposite c_o.B c_b.B)
                     backgroundless.SetPixel(x, y, elementColor))
         Some backgroundless
+
+let private getPlayGridSlotElementOnlyBitmap = getPlayGridSlotElementOnlyBitmapImpl true
+let private getPlayGridSlotElementOnlyBitmapWithoutMask = getPlayGridSlotElementOnlyBitmapImpl false
 
 let private modelCursor = copyBitmap <| new Bitmap(imageDir + "cursor.png")
 
@@ -560,9 +570,9 @@ module Bootstrap =
         
         symbolInfos |> Seq.iter saveElementSymbolFromExampleScreenshot
 
-    let saveEmptyPlayGridSlotElements() =
+    let saveEmptyElementlessPlayGridSlotElementBitmaps() =
         let ss1 = new Bitmap(screenshotDir + @"in-game\target_selection_0_0.jpg")
-        let ss2 = new Bitmap(screenshotDir + @"in-game\elements\2015-06-15_00062.jpg")
+        let ss2 = new Bitmap(screenshotDir + @"in-game\elements\elements_11.jpg")
 
         [ for row in [0..2] do
             for col in [0..2] do if (row,col) <> (0,0) then yield (row,col) ]
@@ -572,3 +582,18 @@ module Bootstrap =
 
         let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[0,0]
         b0_0.Save(imageDir + "play_grid_slot_element_empty_0_0.png")
+
+    let saveEmptyPlayGridSlotElementBitmaps() =
+        let elementScreenshots =
+            [ for i in [0..26] -> new Bitmap(sprintf @"%sin-game\elements\elements_%02d.jpg" screenshotDir (max i 1)) ]
+        let saveSlotElem ssNum row col name =
+            let b = getPlayGridSlotElementOnlyBitmapWithoutMask elementScreenshots.[ssNum] row col
+            if b.IsNone then
+                printfn "ERROR reading %s from ss %d %d,%d" name ssNum row col
+            else
+                b.Value.Save(sprintf @"%s\slot_element_%s.png" imageDir name, Imaging.ImageFormat.Png)
+
+        saveSlotElem 12 0 2 "wind1"
+        saveSlotElem 13 0 2 "wind2"
+        saveSlotElem 14 0 2 "wind3"
+        saveSlotElem 15 0 2 "wind4"

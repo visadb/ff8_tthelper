@@ -13,7 +13,8 @@ let main argv =
     //Bootstrap.saveDigitFilesFromExampleScreenshot()
     //Bootstrap.printDiffs()
     //Bootstrap.saveElementSymbolsFromExampleScreenshots()
-    Bootstrap.saveEmptyPlayGridSlotElements()
+    //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
+    Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
 
     let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
     printfn "%O" <| readGameState screenshot
