@@ -301,12 +301,19 @@ let private readHand screenshot
         |> Array.mapi (shiftCardIfSelected)
         |> Array.map (readCard screenshot (Some owner) (Some 0) None)
 
+let modelEmptyPlayGridSlotElements =
+    [Earth,2 ; Fire,4 ; Holy,2 ; Ice,3 ; Poison,4 ; Thunder,3 ; Water,3 ; Wind,4]
+        |> List.collect (fun (elem,num) ->
+            let elemString = (sprintf "%A" elem).ToLower()
+            [for i in [1..num] -> (copyBitmap <| new Bitmap(imageDir + "slot_element_" + elemString + i.ToString() + ".png") , elem)])
+
 let private readEmptyPlayGridSlotElement screenshot row col: Element option =
-    let elementBitmap = getPlayGridSlotElementOnlyBitmap screenshot row col
-    if elementBitmap.IsSome then
-        Some Unknown
-    else
-        None
+    let elementBitmapOption = getPlayGridSlotElementOnlyBitmap screenshot row col
+    elementBitmapOption |> Option.map (fun bitmap ->
+        modelEmptyPlayGridSlotElements
+            |> List.map (fun (modelBitmap, elem) -> bitmapDiff modelBitmap bitmap, elem)
+            |> List.minBy fst
+            |> snd)
 
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
@@ -337,7 +344,6 @@ let private readTurnPhase screenshot =
         | Some i -> MyTargetSelection (i, targetSelectionPosition.Force().Value)
 
 let readGameState screenshot = 
-    // TODO: empty slot element
     let turnPhase = readTurnPhase screenshot
     let opHand = lazy readHand screenshot Op opponentHandCardPositions None
     let myHandWithSelectedCardIndex = readHand screenshot Me myHandCardPositions
