@@ -155,7 +155,7 @@ let private bitmapDiff (bitmap1: Bitmap) (bitmap2: Bitmap): float =
     if maxAbsDiff = 0 then 0.0
     else (float)absDiff / (float)maxAbsDiff
 
-let private getPlayGridSlotElementOnlyBitmapImpl doMask screenshot row col: Bitmap option =
+let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot row col: Bitmap option =
     // Get element pixels only by undoing compositing:
     // C_o = C_a*alpha_a + C_b*alpha_b*(1-alpha_a)
     // ==> C_a = (C_o - C_b*(1-alpha_a))/alpha_a
@@ -176,14 +176,15 @@ let private getPlayGridSlotElementOnlyBitmapImpl doMask screenshot row col: Bitm
                 for x in 0 .. elementSize.Width-1 -> (x, y, actual.GetPixel(x, y), elementless.GetPixel(x,y)) }
             |> Seq.iter (fun (x, y, c_o, c_b) ->
                 if c_b.A = 0uy || (pixelDiff c_o c_b <= 15) then
-                    backgroundless.SetPixel(x, y, Color.Transparent)
+                    backgroundless.SetPixel(x, y, emptyColor)
                 else
                     let elementColor = Color.FromArgb(decomposite c_o.R c_b.R, decomposite c_o.G c_b.G, decomposite c_o.B c_b.B)
                     backgroundless.SetPixel(x, y, elementColor))
         Some backgroundless
 
-let private getPlayGridSlotElementOnlyBitmap = getPlayGridSlotElementOnlyBitmapImpl true
-let private getPlayGridSlotElementOnlyBitmapWithoutMask = getPlayGridSlotElementOnlyBitmapImpl false
+let private getPlayGridSlotElementOnlyBitmap = getPlayGridSlotElementOnlyBitmapImpl true Color.Transparent
+let private getPlayGridSlotElementOnlyBitmapWithoutTransparency = getPlayGridSlotElementOnlyBitmapImpl true Color.Black
+let private getPlayGridSlotElementOnlyBitmapWithoutMask = getPlayGridSlotElementOnlyBitmapImpl false Color.Transparent
 
 let private modelCursor = copyBitmap <| new Bitmap(imageDir + "cursor.png")
 
@@ -308,7 +309,7 @@ let modelEmptyPlayGridSlotElements =
             [for i in [1..num] -> (copyBitmap <| new Bitmap(imageDir + "slot_element_" + elemString + i.ToString() + ".png") , elem)])
 
 let private readEmptyPlayGridSlotElement screenshot row col: Element option =
-    let elementBitmapOption = getPlayGridSlotElementOnlyBitmap screenshot row col
+    let elementBitmapOption = getPlayGridSlotElementOnlyBitmapWithoutTransparency screenshot row col
     elementBitmapOption |> Option.map (fun bitmap ->
         modelEmptyPlayGridSlotElements
             |> List.map (fun (modelBitmap, elem) -> bitmapDiff modelBitmap bitmap, elem)

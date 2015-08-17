@@ -19,9 +19,11 @@ let n = None
 let e = Some Earth
 let f = Some Fire
 let h = Some Holy
+let i = Some Ice
 let p = Some Poison
 let t = Some Thunder
 let w = Some Wind
+let a = Some Water
 
 let screenshotGameStates = 
     
@@ -80,11 +82,34 @@ let targetSelectionGameStates =
             (sprintf @"in-game\target_selection_%d_%d.jpg" x y,
                { baseGameState with turnPhase = MyTargetSelection (4, (x,y)) })]
 
+let emptyPlayGridSlotElementTestData = [|
+    (02, array2D [[n;n;n]; [f;n;p]; [n;n;p]])
+    (03, array2D [[n;n;n]; [f;n;p]; [n;n;p]])
+    (04, array2D [[n;n;n]; [f;n;p]; [n;n;p]])
+    (10, array2D [[n;n;n]; [t;n;e]; [p;n;n]])
+    (11, array2D [[n;n;n]; [t;n;e]; [p;n;n]])
+    (13, array2D [[n;n;w]; [n;n;n]; [n;n;a]])
+    (14, array2D [[n;n;w]; [n;n;n]; [n;n;a]])
+    (15, array2D [[n;n;w]; [n;n;n]; [n;n;a]])
+    (24, array2D [[f;i;n]; [n;n;n]; [w;n;n]])
+    (25, array2D [[f;i;n]; [n;n;n]; [w;n;n]])
+    (26, array2D [[f;i;n]; [n;n;n]; [w;n;n]])
+    |]
+
 let gameStateReadCorrectly (screenshotFile, expectedGameState): unit =
     let screenshot = new Bitmap(screenshotDir + screenshotFile)
     readGameState screenshot |> should equal expectedGameState
     screenshot.Dispose()
-    
+
+let emptyPlayGridSlotElementsReadCorrectly (ssNum, expectedElems: Element option [,]): unit =
+    let screenshot = new Bitmap(sprintf @"%sin-game\elements\elements_%02d.jpg" screenshotDir ssNum)
+    (readGameState screenshot).playGrid.slots
+        |> Array2D.iteri (fun row col slot ->
+            match slot with
+                | Empty e -> sprintf "%A" e |> should equal (sprintf "%A" expectedElems.[row,col])
+                | _ -> ()
+            )
+    screenshot.Dispose()
 
 [<TestFixture>]
 type ``Game state detector test`` ()=
@@ -96,3 +121,7 @@ type ``Game state detector test`` ()=
     [<Test>] member x.
      ``Target selection game states read correctly`` ()=
         targetSelectionGameStates |> List.iter gameStateReadCorrectly
+
+    [<Test>] member x.
+     ``Empty grid slot elements read correctly`` ()=
+        emptyPlayGridSlotElementTestData |> Array.iter emptyPlayGridSlotElementsReadCorrectly
