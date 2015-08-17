@@ -166,7 +166,7 @@ let private getPlayGridSlotElementOnlyBitmapImpl doMask screenshot row col: Bitm
     //actual.Save(sprintf @"D:\temp\actual%d_%d.png" row col)
     //elementless.Save(sprintf @"D:\temp\elementless%d_%d.png" row col)
 
-    if bitmapDiff actual elementless < 0.03 then
+    if bitmapDiff actual elementless < 0.02 then
         None
     else
         let backgroundless = new Bitmap(elementSize.Width, elementSize.Height, Imaging.PixelFormat.Format32bppArgb)
@@ -592,6 +592,34 @@ module Bootstrap =
                 printfn "ERROR reading %s from ss %d %d,%d" name ssNum row col
             else
                 b.Value.Save(sprintf @"%s\slot_element_%s.png" imageDir name, Imaging.ImageFormat.Png)
+
+        saveSlotElem 19 1 0 "earth1"
+        saveSlotElem 20 1 0 "earth2"
+
+        saveSlotElem 19 2 1 "fire1"
+        saveSlotElem 20 2 1 "fire2"
+        saveSlotElem 21 2 1 "fire3"
+        saveSlotElem 22 2 1 "fire4"
+
+        saveSlotElem 06 0 0 "holy1"
+        saveSlotElem 07 0 0 "holy2"
+
+        saveSlotElem 24 0 1 "ice1"
+        saveSlotElem 25 0 1 "ice2"
+        saveSlotElem 26 0 1 "ice3"
+
+        saveSlotElem 08 2 0 "poison1"
+        saveSlotElem 02 2 2 "poison2"
+        saveSlotElem 04 2 2 "poison3"
+        saveSlotElem 03 2 2 "poison4"
+
+        saveSlotElem 10 1 0 "thunder1"
+        saveSlotElem 16 1 0 "thunder2"
+        saveSlotElem 18 1 0 "thunder3"
+
+        saveSlotElem 13 2 2 "water1"
+        saveSlotElem 14 2 2 "water2"
+        saveSlotElem 15 2 2 "water3"
 
         saveSlotElem 12 0 2 "wind1"
         saveSlotElem 13 0 2 "wind2"
