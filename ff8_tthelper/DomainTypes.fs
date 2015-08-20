@@ -25,9 +25,9 @@ let playGridSlotToString slot =
         | Empty e -> sprintf "Empty GridSlot (%A)" e
 
 type PlayGrid =
-    { slots: PlayGridSlot[,] }
+    { slots: PlayGridSlot array }
     override g.ToString() =
-        "PlayGrid:\n    " + ([ for y in 0..2 -> g.slots.[y, *] |> Array.map playGridSlotToString |> String.concat "\t" ]
+        "PlayGrid:\n    " + ([ for y in 0..2 -> g.slots.[y*3 .. y*3+2] |> Array.map playGridSlotToString |> String.concat "\t" ]
                             |> String.concat "\n    ")
 
 type Hand = Card option array

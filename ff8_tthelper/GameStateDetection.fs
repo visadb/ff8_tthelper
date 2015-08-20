@@ -28,9 +28,9 @@ let private powerModifierSize = Size(45, 20)
 let private opponentHandCardPositions = opponentHandCardOffsets |> Array.map ((+) opponentHandPosition)
 let private myHandCardPositions = myHandCardOffsets |> Array.map ((+) myHandPosition)
 let private playGridCardPositions =
-    array2D [ for row in 0..2 ->
-                [ for col in 0..2 ->
-                    Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) ] ]
+    [| for row in 0..2 do
+        for col in 0..2 ->
+          Point(616 + fieldCardXOffsets.[col], 93 + fieldCardYOffsets.[row]) |]
 
 let private cursorSize = Size(67, 46)
 let private cardSelectionCursorPositions =
@@ -41,6 +41,8 @@ let private targetSelectionCursorPositions =
 let private elementSize = Size(54, 64)
 let private cardElementOffset = Size(149, 10)
 let private playGridSlotElementOffset = Size(76, 107)
+
+let flat row col = row*3 + col
 
 let copyBitmap (bitmap: Bitmap) =
     let copy = new Bitmap(bitmap)
@@ -160,7 +162,7 @@ let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot ro
     // C_o = C_a*alpha_a + C_b*alpha_b*(1-alpha_a)
     // ==> C_a = (C_o - C_b*(1-alpha_a))/alpha_a
     // alpha_b = 1.0, C_o = actual screenshot color, C_b = empty screenshot color
-    let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[row,col]
+    let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[flat row col]
     let elementless = if doMask then emptyElementlessPlayGridSlotBitmaps.[row,col]
                                 else emptyElementlessPlayGridSlotBitmapsWithoutMasks.[row,col]
     //actual.Save(sprintf @"D:\temp\actual%d_%d.png" row col)
@@ -319,11 +321,11 @@ let private readEmptyPlayGridSlotElement screenshot row col: Element option =
 let private readPlayGrid screenshot: PlayGrid =
     { slots =
         playGridCardPositions
-            |> Array2D.map (readCard screenshot None None (Some Element.Unknown))
-            |> Array2D.mapi (fun r c oc ->
+            |> Array.map (readCard screenshot None None (Some Element.Unknown))
+            |> Array.mapi (fun i oc ->
                     match oc with
                         | Some(c) -> Full c
-                        | None -> Empty (readEmptyPlayGridSlotElement screenshot r c)) }
+                        | None -> Empty (readEmptyPlayGridSlotElement screenshot (i/3) (i%3))) }
 
 let private swap f a b = f b a
 
@@ -353,7 +355,7 @@ let readGameState screenshot =
         | OpponentsTurn -> { turnPhase = turnPhase
                              opHand = Array.empty
                              myHand = Array.empty
-                             playGrid = { slots = array2D [] } }
+                             playGrid = { slots = [||] } }
         | MyCardSelection i -> { turnPhase = turnPhase
                                  opHand = opHand.Force()
                                  myHand = myHandWithSelectedCardIndex (Some i)
@@ -398,7 +400,7 @@ module Bootstrap =
 
         saveDigitFileFromScreenshot("1_1", myHandCardPositions.[1] + rightDigitOffset, screenshot)
         saveDigitFileFromScreenshot("1_2", myHandCardPositions.[3] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("1_3", playGridCardPositions.[0, 0] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("1_3", playGridCardPositions.[flat 0 0] + topDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("2_1", myCard0Selected + bottomDigitOffset, screenshot)
         saveDigitFileFromScreenshot("2_2", myHandCardPositions.[2] + bottomDigitOffset, screenshot)
@@ -410,7 +412,7 @@ module Bootstrap =
         saveDigitFileFromScreenshot("3_3", opponentHandCardPositions.[4] + bottomDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("4_1", myHandCardPositions.[4] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_2", playGridCardPositions.[0, 0] + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4_2", playGridCardPositions.[flat 0 0] + bottomDigitOffset, screenshot)
         saveDigitFileFromScreenshot("4_3", opponentHandCardPositions.[1] + topDigitOffset, screenshot)
         saveDigitFileFromScreenshot("4_4", opponentHandCardPositions.[3] + bottomDigitOffset, screenshot)
 
@@ -421,7 +423,7 @@ module Bootstrap =
         saveDigitFileFromScreenshot("5_5", opponentHandCardPositions.[3] + rightDigitOffset, screenshot)
 
         saveDigitFileFromScreenshot("6_1", myHandCardPositions.[2] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_2", playGridCardPositions.[0, 0] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6_2", playGridCardPositions.[flat 0 0] + rightDigitOffset, screenshot)
         saveDigitFileFromScreenshot("6_3", opponentHandCardPositions.[1] + rightDigitOffset, screenshot)
         saveDigitFileFromScreenshot("6_4", opponentHandCardPositions.[2] + bottomDigitOffset, screenshot)
         saveDigitFileFromScreenshot("6_5", opponentHandCardPositions.[3] + topDigitOffset, screenshot)
@@ -429,7 +431,7 @@ module Bootstrap =
 
         saveDigitFileFromScreenshot("7_1", myHandCardPositions.[3] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("7_2", myHandCardPositions.[3] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_3", playGridCardPositions.[0, 0] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7_3", playGridCardPositions.[flat 0 0] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("7_4", opponentHandCardPositions.[1] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("7_5", opponentHandCardPositions.[2] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("7_6", opponentHandCardPositions.[4] + rightDigitOffset, screenshot)
@@ -496,12 +498,12 @@ module Bootstrap =
         let screenshotWithMinus = new Bitmap(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
         let plusBitmap =
-            getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0,0] |> blurBitmap
+            getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[flat 0 0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(1,2,42,11); Rectangle(14,0,15,20)]) plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png", Imaging.ImageFormat.Png)
 
         let minusBitmap =
-            getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0,0] |> blurBitmap
+            getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[flat 0 0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(5,2,39,16)]) minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png", Imaging.ImageFormat.Png)
 
@@ -567,7 +569,7 @@ module Bootstrap =
                         |> PolygonMask }
             { element = Ice
               sourceBitmap = example4
-              cardTopLeft = playGridCardPositions.[1,0]
+              cardTopLeft = playGridCardPositions.[flat 1 0]
               mask = Polygon([37,56; 37,61; 33,57; 26,57; 23,61; 23,56; 26,54; 26,46; 19,37; 12,37; 10,42;
                                8,42;  8,40; 11,36; 11,28;  7,24;  8,22; 10,22; 12,27; 18,27; 25,19; 25,11;
                               23, 9; 23, 4; 26, 7; 34, 7; 37, 3; 37, 9; 34,11; 34,19; 41,28; 46,28; 49,22;
@@ -584,10 +586,10 @@ module Bootstrap =
         [ for row in [0..2] do
             for col in [0..2] do if (row,col) <> (0,0) then yield (row,col) ]
                 |> List.iter (fun (row, col) ->
-                    let bmap = getPlayGridSlotElementBitmap ss1 playGridCardPositions.[row,col]
+                    let bmap = getPlayGridSlotElementBitmap ss1 playGridCardPositions.[flat row col]
                     bmap.Save(sprintf "%splay_grid_slot_element_empty_%d_%d.png" imageDir row col))
 
-        let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[0,0]
+        let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[flat 0 0]
         b0_0.Save(imageDir + "play_grid_slot_element_empty_0_0.png")
 
     let saveEmptyPlayGridSlotElementBitmaps() =
