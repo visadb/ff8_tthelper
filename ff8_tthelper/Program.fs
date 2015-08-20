@@ -16,7 +16,7 @@ let main argv =
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
 
-    let screenshot = new Bitmap(screenshotDir + @"in-game\example_screenshot_3.jpg")
+    let screenshot = new Bitmap(screenshotDir + @"in-game\target_selection_0_0_without_elem.jpg")
     printfn "%O" <| readGameState screenshot
     screenshot.Dispose()
 
