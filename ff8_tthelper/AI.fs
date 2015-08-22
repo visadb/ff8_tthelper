@@ -2,7 +2,7 @@
 
 open DomainTypes
 
-let private isTerminalNode (node: GameState) =
+let isTerminalNode (node: GameState) =
     node.myHand.[4].IsNone || node.opHand.[4].IsNone
 
 let private countHandCards (hand: Hand) =
@@ -50,7 +50,8 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
     updateNeighbor +3 3 // bottom
     { slots = newGridSlots}
 
-let private executeMove (node: GameState) isMaximizingPlayer (handIndex,playGridIndex) =
+let executeMove (node: GameState) (handIndex,playGridIndex) =
+    let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection -1
     let newOpHand = if isMaximizingPlayer then node.opHand else handWithout handIndex node.opHand
     let newMyHand = if not isMaximizingPlayer then node.myHand else handWithout handIndex node.myHand
@@ -58,7 +59,7 @@ let private executeMove (node: GameState) isMaximizingPlayer (handIndex,playGrid
     let newPlayGrid = playGridWithNewCard node.playGrid playGridIndex sourceHand.[handIndex].Value
     { turnPhase = newTurnPhase; myHand = newMyHand; opHand = newOpHand; playGrid = newPlayGrid}
 
-let childStates (node: GameState): GameState array =
+let childStates (node: GameState) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
     let isValidMove handIndex playGridIndex =
@@ -67,7 +68,7 @@ let childStates (node: GameState): GameState array =
                             for playGridIndex in [0..8] do
                                 if isValidMove handIndex playGridIndex then
                                     yield (handIndex, playGridIndex) |]
-    validMoves |> Array.map (executeMove node isMaximizingPlayer)
+    validMoves |> Array.map (fun move ->  move,(executeMove node move))
 
 // function alphabeta(node, depth, α, β, maximizingPlayer)
 //      if depth = 0 or node is a terminal node
@@ -89,10 +90,37 @@ let childStates (node: GameState): GameState array =
 //                  break (* α cut-off *)
 //          return v
 
-let private alphaBeta node depth alpha beta isMaximizingPlayer =
+let rec private alphaBeta node depth alpha beta: (int*int)*int =
     if depth = 0 || isTerminalNode node then
-        evaluateNode node
-    elif isMaximizingPlayer node then
-        0
+        (-1, -1), evaluateNode node
+    elif node.turnPhase <> OpponentsTurn then
+        let children = childStates node
+        let mutable i = 0
+        let mutable v = System.Int32.MinValue
+        let mutable bestMove = (-1, -1)
+        let mutable alpha2 = alpha
+        while i < children.Length && beta > alpha2 do
+            let (_, newV) = alphaBeta (snd children.[i]) (depth - 1) alpha2 beta
+            if newV > v then
+                v <- newV
+                bestMove <- fst children.[i]
+            alpha2 <- max alpha2 v
+            i <- i + 1
+        (bestMove, v)
     else
-        0
+        let children = childStates node
+        let mutable i = 0
+        let mutable v = System.Int32.MaxValue
+        let mutable bestMove = (-1, -1)
+        let mutable beta2 = beta
+        while i < children.Length && beta2 > alpha do
+            let (_, newV) = alphaBeta (snd children.[i]) (depth - 1) alpha beta2
+            if newV < v then
+                v <- newV
+                bestMove <- fst children.[i]
+            beta2 <- min beta2 v
+            i <- i + 1
+        (bestMove, v)
+       
+let getBestMove node depth =
+    alphaBeta node depth System.Int32.MinValue System.Int32.MaxValue
