@@ -13,12 +13,20 @@ type Element =
 type Player = Me | Op
 type Card =
     { powers: int[]; powerModifier: int; owner: Player; element: Element option}
+    member x.modifiedPower powerIndex = x.powers.[powerIndex] + x.powerModifier
     override x.ToString() =
         let powersString = x.powers |> Array.map string |> String.concat ","
         let elementString = if x.element.IsNone then "None" else sprintf "%A" x.element.Value
         sprintf "Card %s %+d %A %s" powersString x.powerModifier x.owner elementString
 
-type PlayGridSlot = Full of Card | Empty of Element option
+type PlayGridSlot =
+    Full of Card | Empty of Element option
+    member x.isEmpty = match x with Full _ -> false | _ -> true
+    member x.isFull = match x with Full _ -> true | _ -> false
+    member x.card = match x with
+                        | Full c -> c
+                        | _ -> raise (new System.NullReferenceException("not Full"))
+
 let playGridSlotToString slot =
     match slot with
         | Full c -> c.ToString()

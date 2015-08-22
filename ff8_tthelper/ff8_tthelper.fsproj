@@ -61,6 +61,7 @@
     <Compile Include="DomainTypes.fs" />
     <Compile Include="GameStateDetection.fs" />
     <Compile Include="GameStateDetectionTest.fs" />
+    <Compile Include="AI.fs" />
     <Compile Include="Program.fs" />
     <Content Include="packages.config" />
   </ItemGroup>

@@ -16,9 +16,15 @@ let main argv =
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
 
-    let screenshot = new Bitmap(screenshotDir + @"in-game\target_selection_0_0_without_elem.jpg")
-    printfn "%O" <| readGameState screenshot
-    screenshot.Dispose()
+    //let screenshot = new Bitmap(screenshotDir + @"in-game\target_selection_0_0_without_elem.jpg")
+    //printfn "%O" <| readGameState screenshot
+    //screenshot.Dispose()
+
+    let initState = snd GameStateDetectionTest.screenshotGameStates.[1]
+    let childStates = AI.childStates initState
+
+    Array.append [|initState|] childStates |> Array.iter (fun state ->
+        printfn "%O-------------------------------------- %d\n" state (AI.evaluateNode state))
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed
