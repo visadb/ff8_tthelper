@@ -25,7 +25,15 @@ let private handWithout handIndex hand =
 
 let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCard: Card) =
     let newGridSlots = Array.copy playGrid.slots
-    newGridSlots.[playGridIndex] <- Full newCard
+
+    let updateTargetSlot () =
+        let targetSlot = playGrid.slots.[playGridIndex]
+        let updatedCard = if targetSlot.element.IsNone
+                             then newCard
+                             else let modifier = if targetSlot.element = newCard.element then +1 else -1
+                                  { newCard with powerModifier = modifier}
+        newGridSlots.[playGridIndex] <- Full updatedCard
+                                        
     let updateNeighbor dirOffset thisPowerIndex =
         let neighborIndex = playGridIndex + dirOffset
         if neighborIndex >= 0 && neighborIndex <= 8 then
@@ -34,7 +42,8 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
             if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
               if neighborSlot.card.modifiedPower otherPowerIndex < newCard.modifiedPower thisPowerIndex then
                newGridSlots.[neighborIndex] <- Full { neighborSlot.card with owner = newCard.owner }
-                
+
+    updateTargetSlot ()
     updateNeighbor -3 0 // top
     updateNeighbor -1 1 // left
     updateNeighbor +1 2 // right

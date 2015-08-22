@@ -26,6 +26,9 @@ type PlayGridSlot =
     member x.card = match x with
                         | Full c -> c
                         | _ -> raise (new System.NullReferenceException("not Full"))
+    member x.element = match x with
+                        | Empty oe -> oe
+                        | _ -> raise (new System.NullReferenceException("not Full"))
 
 let playGridSlotToString slot =
     match slot with

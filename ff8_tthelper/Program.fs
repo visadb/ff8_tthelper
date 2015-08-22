@@ -20,7 +20,7 @@ let main argv =
     //printfn "%O" <| readGameState screenshot
     //screenshot.Dispose()
 
-    let initState = snd GameStateDetectionTest.screenshotGameStates.[1]
+    let initState = snd GameStateDetectionTest.screenshotGameStates.[0]
     let childStates = AI.childStates initState
 
     Array.append [|initState|] childStates |> Array.iter (fun state ->
