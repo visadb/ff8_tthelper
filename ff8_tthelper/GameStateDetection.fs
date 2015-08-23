@@ -170,25 +170,17 @@ let private emptyElementlessPlayGridSlotBitmaps = getEmptyElementlessPlayGridSlo
 let private emptyElementlessPlayGridSlotBitmapsWithoutMasks = getEmptyElementlessPlayGridSlotBitmaps false
 
 let private pixelDiff (pixel1: IntPixel) (pixel2: IntPixel) =
-    abs(R pixel2 - R pixel1)
-  + abs(G pixel2 - G pixel1)
-  + abs(B pixel2 - B pixel1)
+    abs(R pixel2 - R pixel1) + abs(G pixel2 - G pixel1) + abs(B pixel2 - B pixel1)
 
 let private bitmapDiff (bitmap1: SimpleBitmap) (bitmap2: SimpleBitmap): float =
-    let pixelAbsDiffAndMaxDiff(pixel1, pixel2): int*int =
-        if A pixel1 = 0 || A pixel2 = 0 then
-            0, 0
-        else
-            pixelDiff pixel1 pixel2, 3*255
+    let pixelAbsDiffAndMaxDiff (diffSum,maxDiffSum) pixel1 pixel2: int*int =
+        if A pixel1 = 0 || A pixel2 = 0
+        then diffSum, maxDiffSum
+        else diffSum + abs(R pixel2 - R pixel1) + abs(G pixel2 - G pixel1) + abs(B pixel2 - B pixel1), maxDiffSum + 3*255
 
-    let pixelDiffsAndMaxDiffs =
-        seq { for y in 0..(bitmap1.Height-1) do
-                for x in 0..(bitmap1.Width-1) do
-                    yield pixelAbsDiffAndMaxDiff(bitmap1.GetPixel(x,y),bitmap2.GetPixel(x,y)) }
-    let (absDiff, maxAbsDiff) =
-        pixelDiffsAndMaxDiffs |> Seq.reduce (fun (d1,m1) (d2,m2) -> (d1+d2, m1+m2))
-    if maxAbsDiff = 0 then 0.0
-    else (float)absDiff / (float)maxAbsDiff
+    let (absDiff, maxAbsDiff) = Array.fold2 pixelAbsDiffAndMaxDiff (0, 0) bitmap1.Pixels bitmap2.Pixels
+
+    if maxAbsDiff = 0 then 0.0 else (float)absDiff / (float)maxAbsDiff
 
 let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot row col: SimpleBitmap option =
     // Get element pixels only by undoing compositing:
@@ -198,8 +190,6 @@ let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot ro
     let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[flat row col]
     let elementless = if doMask then emptyElementlessPlayGridSlotBitmaps.[row,col]
                                 else emptyElementlessPlayGridSlotBitmapsWithoutMasks.[row,col]
-    //actual.Save(sprintf @"D:\temp\actual%d_%d.png" row col)
-    //elementless.Save(sprintf @"D:\temp\elementless%d_%d.png" row col)
 
     if bitmapDiff actual elementless < 0.02 then
         None
