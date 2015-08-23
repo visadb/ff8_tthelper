@@ -32,26 +32,25 @@ let playGame initState =
     printfn "%O-------------------------------------- %d\n" state (AI.evaluateNode state)
 
 let readGameStateFromScreenshot (screenshotPath: string) =
+    let sw = new System.Diagnostics.Stopwatch()
+    sw.Restart()
     let screenshot = new Bitmap(screenshotPath)
+    printfn "Bitmap read in %d ms" sw.ElapsedMilliseconds
+    sw.Restart()
     let state = readGameState screenshot
+    printfn "GameState read in %d ms" sw.ElapsedMilliseconds
     screenshot.Dispose()
     state
 
 let watchScreenshotDir () =
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
-    let sw = new System.Diagnostics.Stopwatch()
     while true do
         printfn "Waiting for new screenshot..."
         let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
         printfn "#######################################"
         printfn "#### DETECTED %s" changedResult.Name
         printfn "#######################################"
-        sw.Restart()
-
-        let state = readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
-        printfn "GameState read in %d ms" sw.ElapsedMilliseconds
-
-        playGame state
+        playGame <| readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
 
     watcher.Dispose()
 
@@ -75,8 +74,8 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
-    playTestState()
+    playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
+    //playTestState()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed
