@@ -49,12 +49,21 @@ let watchScreenshotDir () =
 
     watcher.Dispose()
 
+let playScreenshot (screenshotPath: string) =
+    let screenshot = new Bitmap(screenshotPath)
+    let state = readGameState screenshot
+    screenshot.Dispose()
+    playGame state
+    
+
 [<EntryPoint>]
 let main argv = 
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-    watchScreenshotDir()
+    //watchScreenshotDir()
+    playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
+    //playScreenshot <| @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots\"
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

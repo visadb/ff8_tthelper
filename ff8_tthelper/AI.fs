@@ -34,9 +34,10 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
                                   { newCard with powerModifier = modifier}
         newGridSlots.[playGridIndex] <- Full updatedCard
                                         
-    let updateNeighbor dirOffset thisPowerIndex =
-        let neighborIndex = playGridIndex + dirOffset
-        if neighborIndex >= 0 && neighborIndex <= 8 then
+    let updateNeighbor rowOffset colOffset thisPowerIndex =
+        let neighborIndex = playGridIndex + rowOffset*3 + colOffset
+        let colOffsetOk = (neighborIndex%3) - (playGridIndex%3) = colOffset
+        if neighborIndex >= 0 && neighborIndex <= 8 && colOffsetOk then
             let neighborSlot = playGrid.slots.[neighborIndex]
             let otherPowerIndex = 3 - thisPowerIndex
             if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
@@ -44,10 +45,10 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
                newGridSlots.[neighborIndex] <- Full { neighborSlot.card with owner = newCard.owner }
 
     updateTargetSlot ()
-    updateNeighbor -3 0 // top
-    updateNeighbor -1 1 // left
-    updateNeighbor +1 2 // right
-    updateNeighbor +3 3 // bottom
+    updateNeighbor -1  0 0 // top
+    updateNeighbor  0 -1 1 // left
+    updateNeighbor  0 +1 2 // right
+    updateNeighbor +1  0 3 // bottom
     { slots = newGridSlots}
 
 let executeMove (node: GameState) (handIndex,playGridIndex) =
@@ -72,26 +73,6 @@ let childStates (node: GameState) =
                 validMoves <- (handIndex, playGridIndex) :: validMoves
     validMoves |> List.map (fun move ->  move,(executeMove node move))
 
-// function alphabeta(node, depth, α, β, maximizingPlayer)
-//      if depth = 0 or node is a terminal node
-//          return the heuristic value of node
-//      if maximizingPlayer
-//          v := -∞
-//          for each child of node
-//              v := max(v, alphabeta(child, depth - 1, α, β, FALSE))
-//              α := max(α, v)
-//              if β ≤ α
-//                  break (* β cut-off *)
-//          return v
-//      else
-//          v := ∞
-//          for each child of node
-//              v := min(v, alphabeta(child, depth - 1, α, β, TRUE))
-//              β := min(β, v)
-//              if β ≤ α
-//                  break (* α cut-off *)
-//          return v
-
 let rec private alphaBeta node depth alpha beta: (int*int)*int =
     if depth = 0 || isTerminalNode node then
         (-1, -1), evaluateNode node
@@ -102,9 +83,8 @@ let rec private alphaBeta node depth alpha beta: (int*int)*int =
                 | [] -> (bestMove,v)
                 | x::xs ->
                     let newV = snd <| alphaBeta (snd x) (depth - 1) alpha2 beta
-                    if newV > v 
-                    then loopChildren xs newV (fst x) (max alpha2 newV)
-                    else loopChildren xs v bestMove (max alpha2 newV)
+                    if newV > v then loopChildren xs newV (fst x) (max alpha2 newV)
+                                else loopChildren xs v bestMove alpha2
         loopChildren (childStates node) System.Int32.MinValue (-1,-1) alpha
     else
         let rec loopChildren children v bestMove beta2 =
@@ -113,23 +93,9 @@ let rec private alphaBeta node depth alpha beta: (int*int)*int =
                 | [] -> (bestMove,v)
                 | x::xs ->
                     let newV = snd <| alphaBeta (snd x) (depth - 1) alpha beta2
-                    if newV < v 
-                    then loopChildren xs newV (fst x) (min beta2 newV)
-                    else loopChildren xs v bestMove (min beta2 newV)
+                    if newV < v then loopChildren xs newV (fst x) (min beta2 newV)
+                                else loopChildren xs v bestMove beta2
         loopChildren (childStates node) System.Int32.MaxValue (-1,-1) beta
-
-        //let mutable i = 0
-        //let mutable v = System.Int32.MaxValue
-        //let mutable bestMove = (-1, -1)
-        //let mutable beta2 = beta
-        //while i < children.Length && beta2 > alpha do
-        //    let (_, newV) = alphaBeta (snd children.[i]) (depth - 1) alpha beta2
-        //    if newV < v then
-        //        v <- newV
-        //        bestMove <- fst children.[i]
-        //    beta2 <- min beta2 v
-        //    i <- i + 1
-        //(bestMove, v)
        
 let getBestMove node depth =
     alphaBeta node depth System.Int32.MinValue System.Int32.MaxValue
