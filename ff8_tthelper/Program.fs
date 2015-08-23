@@ -3,6 +3,8 @@
 open DomainTypes
 open System.Drawing
 
+let steamScreenshotDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
+
 let bootstrap () =
     //Bootstrap.savePowerModifiersFromExampleScreenshots()
     //Bootstrap.saveCursorFromExampleScreenshot()
@@ -29,7 +31,6 @@ let playGame initState =
     printfn "%O-------------------------------------- %d\n" state (AI.evaluateNode state)
 
 let watchScreenshotDir () =
-    let steamScreenshotDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
     let sw = new System.Diagnostics.Stopwatch()
     while true do
@@ -62,8 +63,8 @@ let main argv =
     sw.Start()
 
     //watchScreenshotDir()
-    playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //playScreenshot <| @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots\"
+    //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
+    playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

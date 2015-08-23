@@ -36,8 +36,8 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
                                         
     let updateNeighbor rowOffset colOffset thisPowerIndex =
         let neighborIndex = playGridIndex + rowOffset*3 + colOffset
-        let colOffsetOk = (neighborIndex%3) - (playGridIndex%3) = colOffset
-        if neighborIndex >= 0 && neighborIndex <= 8 && colOffsetOk then
+                                
+        if neighborIndex >= 0 && neighborIndex <= 8 && (neighborIndex%3 - playGridIndex%3 = colOffset) then
             let neighborSlot = playGrid.slots.[neighborIndex]
             let otherPowerIndex = 3 - thisPowerIndex
             if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
