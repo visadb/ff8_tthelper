@@ -2,6 +2,7 @@
 
 open DomainTypes
 open System.Drawing
+open GameStateDetectionTest
 
 let steamScreenshotDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
 
@@ -57,6 +58,16 @@ let watchScreenshotDir () =
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
     
+let playTestState () =
+    let state = {
+            turnPhase = OpponentsTurn
+            myHand = [|None; None; None; None             ; hc [1;2;1;1] Me n|]
+            opHand = [|None; None; None; hc [1;1;1;1] Op n; hc [1;1;2;1] Op n|]
+            playGrid = { slots = [| pc [1;1;1;1] Me 0; pc [1;1;1;1] Op 0; pc [1;1;1;1] Me 0
+                                    pc [1;1;2;1] Op 0; emptySlot        ; pc [1;2;1;1] Me 0
+                                    pc [1;1;1;1] Op 0; emptySlot        ; pc [1;1;1;1] Me 0 |] } }
+    playGame state
+
 [<EntryPoint>]
 let main argv = 
     let sw = new System.Diagnostics.Stopwatch()
@@ -64,7 +75,8 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
+    //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
+    playTestState()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed
