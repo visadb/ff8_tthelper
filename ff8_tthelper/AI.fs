@@ -9,13 +9,67 @@ let private countHandCards (hand: Hand) =
     let firstFullIndex = (hand |> Array.tryFindIndex Option.isSome)
     if firstFullIndex.IsSome then 5 - firstFullIndex.Value else 0
 
-let evaluateNode (node: GameState) =
-    let gridBalance = node.playGrid.slots |> Array.sumBy (fun slot -> 
-        match slot with
-            | Full c -> if c.owner = Me then 1 else -1
-            | Empty _ -> 0)
-    gridBalance + (countHandCards node.myHand) - (countHandCards node.opHand)
 
+
+let getEmptyNeighbors (node: GameState) gi =
+    let mutable neighbors = List.empty
+    if gi>=3 && node.playGrid.slots.[gi-3].isEmpty then neighbors <- (gi-3, 0) :: neighbors
+    if gi<>0 && gi<>3 && gi<>6 && node.playGrid.slots.[gi-1].isEmpty then neighbors <- (gi-1, 1) :: neighbors
+    if gi<>2 && gi<>5 && gi<>8 && node.playGrid.slots.[gi+1].isEmpty then neighbors <- (gi+1, 2) :: neighbors
+    if gi<=5 && node.playGrid.slots.[gi+3].isEmpty then neighbors <- (gi+3, 3) :: neighbors
+    neighbors
+
+let canCardBeCaptured (node: GameState)
+                      (otherPlayerMaxPowers: int array array)
+                      (gridIndex: int)
+                      (gridSlot: PlayGridSlot)
+                      debug =
+    let emptyNeighbors = getEmptyNeighbors node gridIndex
+    let ret = emptyNeighbors |> List.exists (fun (neighborIndex, powerIndex) ->
+        otherPlayerMaxPowers.[neighborIndex].[3-powerIndex] > gridSlot.card.powers.[powerIndex])
+    if debug then
+        printfn "Card (%d,%d) can %sbe captured" (gridIndex/3) (gridIndex%3) (if ret then "" else "not ")
+    ret
+
+let evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots debug gridIndex gridSlot =
+    match gridSlot with
+        | Empty _ -> 0
+        | Full c ->
+            let otherPlayerMaxPowers = if c.owner = Me then opHandMaxPowersInSlots else myHandMaxPowersInSlots
+            let canBeCaptured = canCardBeCaptured node otherPlayerMaxPowers gridIndex gridSlot debug
+            (if c.owner = Me then 1 else -1) * (if canBeCaptured then 5 else 15)
+    
+let cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
+    match slotElem with
+        | None -> card.powers
+        | eo -> card.powers |> Array.map (if eo = slotElem then ((+) 1) else (fun i -> i-1))
+let maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
+    hand |> Array.fold (fun maxPs oc ->
+                            match oc with
+                                | None -> maxPs
+                                | Some c -> cardPowersInGridSlotWithElement c elem) [|-1;-1;-1;-1|]
+let handMaxPowersInEmptyGridSlots (node: GameState) hand =
+    node.playGrid.slots |> Array.map (fun slot ->
+        match slot with
+            | Full _ -> Array.empty
+            | Empty e -> maxPowersInGridSlotWithElem hand e
+    )
+
+let evaluateNode (node: GameState) debug =
+    let myHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.myHand
+    let opHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.opHand
+    let gridValue = node.playGrid.slots |> Array.mapi (evaluateGridSlot node
+                                                                        myHandMaxPowersInSlots
+                                                                        opHandMaxPowersInSlots
+                                                                        debug)
+                                          |> Array.sum
+    gridValue + (countHandCards node.myHand)*10 - (countHandCards node.opHand)*10
+
+let cardBalance (node: GameState) =
+    let gridBalance = node.playGrid.slots |> Array.sumBy (function
+        | Empty _ -> 0 
+        | Full c -> if c.owner = Me then 1 else -1)
+    gridBalance + (countHandCards node.myHand) - (countHandCards node.opHand)
 
 let private handWithout handIndex hand =
     let newHand = Array.copy hand
@@ -75,7 +129,7 @@ let childStates (node: GameState) =
 
 let rec private alphaBeta node depth alpha beta: (int*int)*int =
     if depth = 0 || isTerminalNode node then
-        (-1, -1), evaluateNode node
+        (-1, -1), evaluateNode node false
     elif node.turnPhase <> OpponentsTurn then
         let rec loopChildren children v bestMove alpha2 =
             match children with

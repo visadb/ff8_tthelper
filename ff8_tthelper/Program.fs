@@ -17,10 +17,14 @@ let bootstrap () =
     ()
 
 let playGame initState =
+    let printState state =
+        printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state false) (AI.cardBalance state)
+
+
     let mutable state = initState
     let sw = new System.Diagnostics.Stopwatch()
     while not (AI.isTerminalNode state) do
-        printfn "%O-------------------------------------- %d" state (AI.evaluateNode state)
+        printState state
         sw.Restart()
         let (move, value) = AI.getBestMove state 9
         printfn "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
@@ -29,7 +33,7 @@ let playGame initState =
                                                                         sw.ElapsedMilliseconds
         state <- AI.executeMove state move
 
-    printfn "%O-------------------------------------- %d\n" state (AI.evaluateNode state)
+    printState state
 
 let readGameStateFromScreenshot (screenshotPath: string) =
     let sw = new System.Diagnostics.Stopwatch()
