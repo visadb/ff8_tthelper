@@ -30,6 +30,12 @@ let playGame initState =
 
     printfn "%O-------------------------------------- %d\n" state (AI.evaluateNode state)
 
+let readGameStateFromScreenshot (screenshotPath: string) =
+    let screenshot = new Bitmap(screenshotPath)
+    let state = readGameState screenshot
+    screenshot.Dispose()
+    state
+
 let watchScreenshotDir () =
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
     let sw = new System.Diagnostics.Stopwatch()
@@ -41,9 +47,7 @@ let watchScreenshotDir () =
         printfn "#######################################"
         sw.Restart()
 
-        let screenshot = new Bitmap(steamScreenshotDir + @"\" + changedResult.Name)
-        let state = readGameState screenshot
-        screenshot.Dispose()
+        let state = readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
         printfn "GameState read in %d ms" sw.ElapsedMilliseconds
 
         playGame state
@@ -51,12 +55,8 @@ let watchScreenshotDir () =
     watcher.Dispose()
 
 let playScreenshot (screenshotPath: string) =
-    let screenshot = new Bitmap(screenshotPath)
-    let state = readGameState screenshot
-    screenshot.Dispose()
-    playGame state
+    playGame <| readGameStateFromScreenshot screenshotPath
     
-
 [<EntryPoint>]
 let main argv = 
     let sw = new System.Diagnostics.Stopwatch()
