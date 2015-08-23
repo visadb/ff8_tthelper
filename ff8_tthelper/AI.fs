@@ -52,7 +52,7 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
 
 let executeMove (node: GameState) (handIndex,playGridIndex) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
-    let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection -1
+    let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection 4
     let newOpHand = if isMaximizingPlayer then node.opHand else handWithout handIndex node.opHand
     let newMyHand = if not isMaximizingPlayer then node.myHand else handWithout handIndex node.myHand
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
@@ -66,7 +66,7 @@ let childStates (node: GameState) =
         sourceHand.[handIndex].IsSome && node.playGrid.slots.[playGridIndex].isEmpty
 
     let mutable validMoves = []
-    for handIndex in  4 .. -1 .. 0 do
+    for handIndex in 4 .. -1 .. 0 do
         for playGridIndex in 8 .. -1 .. 0 do
             if isValidMove handIndex playGridIndex then
                 validMoves <- (handIndex, playGridIndex) :: validMoves
