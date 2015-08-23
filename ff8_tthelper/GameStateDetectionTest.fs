@@ -97,19 +97,17 @@ let emptyPlayGridSlotElementTestData = [|
     |]
 
 let gameStateReadCorrectly (screenshotFile, expectedGameState): unit =
-    let screenshot = new Bitmap(screenshotDir + screenshotFile)
+    let screenshot = SimpleBitmap.fromFile(screenshotDir + screenshotFile)
     readGameState screenshot |> should equal expectedGameState
-    screenshot.Dispose()
 
 let emptyPlayGridSlotElementsReadCorrectly (ssNum, expectedElems: Element option [,]): unit =
-    let screenshot = new Bitmap(sprintf @"%sin-game\elements\elements_%02d.jpg" screenshotDir ssNum)
+    let screenshot = SimpleBitmap.fromFile(sprintf @"%sin-game\elements\elements_%02d.jpg" screenshotDir ssNum)
     (readGameState screenshot).playGrid.slots
         |> Array.iteri (fun i slot ->
             match slot with
                 | Empty e -> sprintf "%A" e |> should equal (sprintf "%A" expectedElems.[i/3,i%3])
                 | _ -> ()
             )
-    screenshot.Dispose()
 
 [<TestFixture>]
 type ``Game state detector test`` ()=

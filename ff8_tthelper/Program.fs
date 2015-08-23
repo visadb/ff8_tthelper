@@ -38,12 +38,12 @@ let playGame initState =
 let readGameStateFromScreenshot (screenshotPath: string) =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Restart()
-    let screenshot = new Bitmap(screenshotPath)
-    printfn "Bitmap read in %d ms" sw.ElapsedMilliseconds
+    printfn "Reading %s" screenshotPath
+    let screenshot = SimpleBitmap.fromFile(screenshotPath)
+    printfn "Bitmap of size %dx%d read in %d ms" screenshot.Width screenshot.Height sw.ElapsedMilliseconds
     sw.Restart()
     let state = readGameState screenshot
     printfn "GameState read in %d ms" sw.ElapsedMilliseconds
-    screenshot.Dispose()
     state
 
 let watchScreenshotDir () =
