@@ -50,7 +50,7 @@ let A pixel = (pixel>>>24) &&& 0xff
 let R pixel = (pixel>>>16) &&& 0xff
 let G pixel = (pixel>>>8) &&& 0xff
 let B pixel = pixel &&& 0xff
-let ARGB(a,r,g,b): IntPixel = a<<<24 ||| r<<<16 ||| g<<<8 ||| b
+let ARGB(a,r,g,b): IntPixel = (a<<<24) ||| (r<<<16) ||| (g<<<8) ||| b
 
 type SimpleBitmap =
     { Pixels: IntPixel[]; Width: int }
@@ -225,9 +225,10 @@ let private readCardOwner (screenshot: SimpleBitmap) (cardPos: Point) =
     let isPixelBetween (bounds: IntPixel*IntPixel) (pixel: IntPixel) =
         let isBetween =
                 let r, g, b = R pixel, G pixel, B pixel
-                R pixel >= R (fst bounds) && R pixel <= R (snd bounds)
-             && G pixel >= G (fst bounds) && G pixel <= G (snd bounds)
-             && B pixel >= B (fst bounds) && B pixel <= B (snd bounds)
+                let lBound, uBound = bounds
+                (r >= R lBound) && (r <= R uBound)
+             && (g >= G lBound) && (g <= G uBound)
+             && (b >= B lBound) && (b <= B uBound)
         if isBetween then 1 else 0
 
     let isMyPixel = isPixelBetween meColorBounds
