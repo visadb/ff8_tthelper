@@ -76,9 +76,9 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-    //watchScreenshotDir()
+    watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
+    //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
 
     sw.Stop()
