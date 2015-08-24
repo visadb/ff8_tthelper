@@ -95,8 +95,10 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
             let neighborSlot = playGrid.slots.[neighborIndex]
             let otherPowerIndex = 3 - thisPowerIndex
             if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
-              if neighborSlot.card.modifiedPower otherPowerIndex < newCard.modifiedPower thisPowerIndex then
-               newGridSlots.[neighborIndex] <- Full { neighborSlot.card with owner = newCard.owner }
+                let updatedNewCard = newGridSlots.[playGridIndex].card
+                let neighborPower = neighborSlot.card.modifiedPower otherPowerIndex
+                if neighborPower < updatedNewCard.modifiedPower thisPowerIndex then
+                   newGridSlots.[neighborIndex] <- Full { neighborSlot.card with owner = newCard.owner }
 
     updateTargetSlot ()
     updateNeighbor -1  0 0 // top
