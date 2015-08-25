@@ -390,6 +390,8 @@ let readGameState screenshot =
                                         myHand = myHandWithSelectedCardIndex (Some i)
                                         playGrid = playGrid.Force() }
 
+let isAtCardSelectionConfirmationNo screenshot =
+    isCursorAtPoint screenshot (Point(806, 603))
     
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty

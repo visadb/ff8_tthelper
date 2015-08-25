@@ -1,8 +1,10 @@
 ﻿open GameStateDetection
 
 open DomainTypes
-open System.Drawing
 open GameStateDetectionTest
+
+open System.Drawing
+open System.Threading
 
 let steamScreenshotDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
 
@@ -84,6 +86,12 @@ let playOneTurn state =
     let rowOffset, colOffset = targetGridIndex/3 - 1, targetGridIndex%3 - 1
     selectTargetSlot rowOffset colOffset
 
+let waitForUserToPressF12() =
+    let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
+    printfn "Press F12 inside game"
+    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
+    watcher.Dispose()
+
 let watchScreenshotDir () =
     while true do
         let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
@@ -100,10 +108,61 @@ let watchScreenshotDir () =
             printfn "My turn, playing!"
             playOneTurn state
 
+let sendAndSleep (key: string) (ms: int) =
+    sendKey key
+    Thread.Sleep ms
+
+let takeScreenshot(): SimpleBitmap =
+    let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
+    printfn "Waiting screenshot taken by me..."
+    sendKey "F12"
+    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
+    printfn "Got %s" changedResult.Name
+    Thread.Sleep 100
+    try
+        SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
+    with
+        | _ -> // retry
+            Thread.Sleep 100
+            SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
+
+let chooseCards() = 
+    sendAndSleep "Left" 200
+    sendAndSleep "Up" 20
+
+    let mutable triedCount = 0
+    while (triedCount < 14)
+          && ((triedCount < 5) || not (isAtCardSelectionConfirmationNo (takeScreenshot()))) do
+        sendAndSleep "x" 400
+        if triedCount > 0 && triedCount % 10 = 0 then
+            sendAndSleep "Left" 200
+        sendAndSleep "Up" 20
+        triedCount <- triedCount + 1
+
+    if triedCount = 15 then
+        printfn "Card selection failed :(((("
+    else
+        sendAndSleep "Up" 30
+        sendAndSleep "x" 2000
+        printfn "Cards chosen!"
+
+
+let startGame() =
+    sendAndSleep "s" 700 // Play game?
+    sendAndSleep "x" 2000 // Yes
+    sendAndSleep "x" 2500 // Talking
+    sendAndSleep "x" 2000 // Rules
+    chooseCards()
+
+
+let autoPlay() =
+    // assert/assume that outside
+    startGame()
+
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
     
-let playTestState () =
+let playTestState() =
     let state = {
             turnPhase = OpponentsTurn
             myHand = [|None; None; None; None             ; hc [1;2;1;1] Me n|]
@@ -118,10 +177,14 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-    watchScreenshotDir()
+    //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
+
+    while true do
+        waitForUserToPressF12()
+        startGame()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

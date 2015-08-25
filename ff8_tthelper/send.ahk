@@ -1,4 +1,3 @@
 Send, {%1% down}
-Sleep, 50
+Sleep, 30
 Send, {%1% up}
-Sleep, 20
