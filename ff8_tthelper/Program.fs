@@ -16,11 +16,10 @@ let bootstrap () =
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
     ()
 
+let printState state =
+    printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state false) (AI.cardBalance state)
+
 let playGame initState =
-    let printState state =
-        printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state false) (AI.cardBalance state)
-
-
     let mutable state = initState
     let sw = new System.Diagnostics.Stopwatch()
     while not (AI.isTerminalNode state) do
@@ -46,17 +45,60 @@ let readGameStateFromScreenshot (screenshotPath: string) =
     printfn "GameState read in %d ms" sw.ElapsedMilliseconds
     state
 
+let ahkProg = @"C:\Program Files\AutoHotkey\AutoHotkey.exe"
+let sendScript = System.IO.Directory.GetCurrentDirectory() + @"\..\..\send.ahk"
+let sendKey key =
+    let proc = System.Diagnostics.Process.Start(ahkProg, sendScript+" "+key)
+    proc.WaitForExit()
+    
+
+let playOneTurn state =
+    let selectHandCard offset = 
+        printfn "Selecting hand card: %d" offset
+        let key = if offset < 0 then "Up" else "Down"
+        for i in 1 .. abs offset do
+            sendKey key
+        sendKey "x"
+    let selectTargetSlot rowOffset colOffset =
+        printfn "Selecting target slot: (%d, %d)" rowOffset colOffset
+        if rowOffset = -1 then sendKey "Up"
+        elif rowOffset = 1 then sendKey "Down"
+        if colOffset = -1 then sendKey "Left"
+        elif colOffset = 1 then sendKey "Right"
+        sendKey "x"
+
+    let (srcHandIndex, targetGridIndex), value = AI.getBestMove state 9
+    printState state
+    printfn "Best move is %d -> (%d,%d) with value %d" (srcHandIndex) (targetGridIndex/3)
+                                                       (targetGridIndex%3) value
+    printState <| AI.executeMove state (srcHandIndex, targetGridIndex)
+    match state.turnPhase with
+        | MyCardSelection currentHandIndex ->
+            selectHandCard <| srcHandIndex - currentHandIndex
+        | MyTargetSelection (currentHandIndex,_) ->
+            sendKey "c"
+            selectHandCard <| srcHandIndex - currentHandIndex
+        | _ -> ()
+
+    // Now selecting target, cursor at (1,1)
+    let rowOffset, colOffset = targetGridIndex/3 - 1, targetGridIndex%3 - 1
+    selectTargetSlot rowOffset colOffset
+
 let watchScreenshotDir () =
-    let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
     while true do
+        let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
         printfn "Waiting for new screenshot..."
         let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
+        watcher.Dispose()
         printfn "#######################################"
         printfn "#### DETECTED %s" changedResult.Name
         printfn "#######################################"
-        playGame <| readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
-
-    watcher.Dispose()
+        let state = readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
+        if state.turnPhase = OpponentsTurn then
+            printfn "Not my turn..."
+        else
+            printfn "My turn, playing!"
+            playOneTurn state
 
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
