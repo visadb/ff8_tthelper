@@ -126,7 +126,8 @@ let childStates (node: GameState) =
     let movesWithStates = validMoves |> List.toArray
                                      |> Array.map (fun move ->  move,(executeMove node move))
     if isMaximizingPlayer && sourceHand.[0].IsSome then
-        movesWithStates |> Array.sortInPlaceBy (fun (_,s1) -> -(evaluateNode s1))
+        movesWithStates |> Array.sortInPlaceBy (fun ((_,gi),s) ->
+            if canCardBeCaptured s (handMaxPowersInEmptyGridSlots s s.opHand) gi s.playGrid.slots.[gi] then 1 else -1)
     movesWithStates
 
 let rec private alphaBeta node depth alpha beta: (int*int)*int =
