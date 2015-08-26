@@ -22,21 +22,18 @@ let getEmptyNeighbors (node: GameState) gi =
 let canCardBeCaptured (node: GameState)
                       (otherPlayerMaxPowers: int array array)
                       (gridIndex: int)
-                      (gridSlot: PlayGridSlot)
-                      debug =
+                      (gridSlot: PlayGridSlot) =
     let emptyNeighbors = getEmptyNeighbors node gridIndex
     let ret = emptyNeighbors |> List.exists (fun (neighborIndex, powerIndex) ->
         otherPlayerMaxPowers.[neighborIndex].[3-powerIndex] > gridSlot.card.powers.[powerIndex])
-    if debug then
-        printfn "Card (%d,%d) can %sbe captured" (gridIndex/3) (gridIndex%3) (if ret then "" else "not ")
     ret
 
-let evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots debug gridIndex gridSlot =
+let evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots gridIndex gridSlot =
     match gridSlot with
         | Empty _ -> 0
         | Full c ->
             let otherPlayerMaxPowers = if c.owner = Me then opHandMaxPowersInSlots else myHandMaxPowersInSlots
-            let canBeCaptured = canCardBeCaptured node otherPlayerMaxPowers gridIndex gridSlot debug
+            let canBeCaptured = canCardBeCaptured node otherPlayerMaxPowers gridIndex gridSlot
             (if c.owner = Me then 1 else -1) * (if canBeCaptured then 5 else 15)
     
 let cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
@@ -55,13 +52,12 @@ let handMaxPowersInEmptyGridSlots (node: GameState) hand =
             | Empty e -> maxPowersInGridSlotWithElem hand e
     )
 
-let evaluateNode (node: GameState) debug =
+let evaluateNode (node: GameState) =
     let myHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.myHand
     let opHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.opHand
     let gridValue = node.playGrid.slots |> Array.mapi (evaluateGridSlot node
                                                                         myHandMaxPowersInSlots
-                                                                        opHandMaxPowersInSlots
-                                                                        debug)
+                                                                        opHandMaxPowersInSlots)
                                           |> Array.sum
     gridValue + (countHandCards node.myHand)*10 - (countHandCards node.opHand)*10
 
@@ -127,31 +123,35 @@ let childStates (node: GameState) =
         for playGridIndex in 8 .. -1 .. 0 do
             if isValidMove handIndex playGridIndex then
                 validMoves <- (handIndex, playGridIndex) :: validMoves
-    validMoves |> List.map (fun move ->  move,(executeMove node move))
+    let movesWithStates = validMoves |> List.toArray
+                                     |> Array.map (fun move ->  move,(executeMove node move))
+    if isMaximizingPlayer && sourceHand.[0].IsSome then
+        movesWithStates |> Array.sortInPlaceBy (fun (_,s1) -> -(evaluateNode s1))
+    movesWithStates
 
 let rec private alphaBeta node depth alpha beta: (int*int)*int =
     if depth = 0 || isTerminalNode node then
-        (-1, -1), evaluateNode node false
+        (-1, -1), cardBalance node
     elif node.turnPhase <> OpponentsTurn then
-        let rec loopChildren children v bestMove alpha2 =
+        let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove alpha2 =
             match children with
                 | _ when beta <= alpha2 -> (bestMove,v)
-                | [] -> (bestMove,v)
-                | x::xs ->
-                    let newV = snd <| alphaBeta (snd x) (depth - 1) alpha2 beta
-                    if newV > v then loopChildren xs newV (fst x) (max alpha2 newV)
-                                else loopChildren xs v bestMove alpha2
-        loopChildren (childStates node) System.Int32.MinValue (-1,-1) alpha
+                | _ when childrenIndex = children.Length -> (bestMove,v)
+                | _ ->
+                    let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha2 beta
+                    if newV > v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (max alpha2 newV)
+                                else loopChildren children (childrenIndex+1) v bestMove alpha2
+        loopChildren (childStates node) 0 System.Int32.MinValue (-1,-1) alpha
     else
-        let rec loopChildren children v bestMove beta2 =
+        let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove beta2 =
             match children with
                 | _ when beta2 <= alpha -> (bestMove,v)
-                | [] -> (bestMove,v)
-                | x::xs ->
-                    let newV = snd <| alphaBeta (snd x) (depth - 1) alpha beta2
-                    if newV < v then loopChildren xs newV (fst x) (min beta2 newV)
-                                else loopChildren xs v bestMove beta2
-        loopChildren (childStates node) System.Int32.MaxValue (-1,-1) beta
+                | _ when childrenIndex = children.Length -> (bestMove,v)
+                | _ ->
+                    let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha beta2
+                    if newV < v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (min beta2 newV)
+                                else loopChildren children (childrenIndex+1) v bestMove beta2
+        loopChildren (childStates node) 0 System.Int32.MaxValue (-1,-1) beta
        
 let getBestMove node depth =
     alphaBeta node depth System.Int32.MinValue System.Int32.MaxValue
