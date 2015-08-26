@@ -109,6 +109,10 @@ let emptyPlayGridSlotElementsReadCorrectly (ssNum, expectedElems: Element option
                 | _ -> ()
             )
 
+let gamePhaseReadCorrectly expectedGamePhase =
+     let f = sprintf @"%sgetting_out\result_%s.jpg" screenshotDir ((sprintf "%A" expectedGamePhase).ToLower())
+     readGamePhase (SimpleBitmap.fromFile(f)) |> should equal expectedGamePhase
+
 [<TestFixture>]
 type ``Game state detector test`` ()=
     
@@ -123,3 +127,7 @@ type ``Game state detector test`` ()=
     [<Test>] member x.
      ``Empty grid slot elements read correctly`` ()=
         emptyPlayGridSlotElementTestData |> Array.iter emptyPlayGridSlotElementsReadCorrectly
+
+    [<Test>] member x.
+     ``Game phase read correctly`` ()=
+        [Won; Draw; Lost] |> List.iter gamePhaseReadCorrectly

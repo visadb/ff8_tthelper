@@ -4,7 +4,13 @@ exception GameStateDetectionError of string
 
 type HandIndex = int
 type GridCoords = int*int
-type TurnPhase = MyCardSelection of HandIndex | MyTargetSelection of HandIndex*GridCoords | OpponentsTurn
+
+type TurnPhase =
+    | MyCardSelection of HandIndex
+    | MyTargetSelection of HandIndex*GridCoords
+    | OpponentsTurn
+
+type GamePhase = Ongoing | Won | Draw | Lost
 
 type Element =
     Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | Unknown

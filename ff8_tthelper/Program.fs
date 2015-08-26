@@ -16,10 +16,11 @@ let bootstrap () =
     //Bootstrap.saveElementSymbolsFromExampleScreenshots()
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
+    Bootstrap.saveResultDetectionBitmaps()
     ()
 
 let printState state =
-    printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state false) (AI.cardBalance state)
+    printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state) (AI.cardBalance state)
 
 let playGame initState =
     let mutable state = initState
@@ -55,6 +56,7 @@ let sendKey key =
     
 
 let playOneTurn state =
+    let sw = System.Diagnostics.Stopwatch()
     let selectHandCard offset = 
         printfn "Selecting hand card: %d" offset
         let key = if offset < 0 then "Up" else "Down"
@@ -69,10 +71,12 @@ let playOneTurn state =
         elif colOffset = 1 then sendKey "Right"
         sendKey "x"
 
+    sw.Restart()
     let (srcHandIndex, targetGridIndex), value = AI.getBestMove state 9
+    let took = sw.ElapsedMilliseconds
     printState state
-    printfn "Best move is %d -> (%d,%d) with value %d" (srcHandIndex) (targetGridIndex/3)
-                                                       (targetGridIndex%3) value
+    printfn "Best move is %d -> (%d,%d) with value %d (took %d ms)" (srcHandIndex) (targetGridIndex/3)
+                                                                    (targetGridIndex%3) value took
     printState <| AI.executeMove state (srcHandIndex, targetGridIndex)
     match state.turnPhase with
         | MyCardSelection currentHandIndex ->
@@ -95,7 +99,7 @@ let waitForUserToPressF12() =
 let watchScreenshotDir () =
     while true do
         let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
-        printfn "Waiting for new screenshot..."
+        printfn "\nWaiting for new screenshot..."
         let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
         watcher.Dispose()
         printfn "#######################################"
@@ -159,6 +163,9 @@ let autoPlay() =
     // assert/assume that outside
     startGame()
 
+    let mutable state = null
+    123
+
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
     
@@ -177,14 +184,16 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
+    bootstrap()
+
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
 
-    while true do
-        waitForUserToPressF12()
-        startGame()
+    //while true do
+    //    waitForUserToPressF12()
+    //    startGame()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

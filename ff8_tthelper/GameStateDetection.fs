@@ -42,6 +42,10 @@ let private elementSize = Size(54, 64)
 let private cardElementOffset = Size(149, 10)
 let private playGridSlotElementOffset = Size(76, 107)
 
+let resultDrawRectangle = Rectangle(837, 438, 3, 205)
+let resultWinRectangle = Rectangle(1324, 438, 34, 78)
+let resultLoseRectangle = Rectangle(1320, 551, 47, 57)
+
 let flat row col = row*3 + col
 
 type IntPixel = System.Int32
@@ -84,7 +88,7 @@ type SimpleBitmap =
     static member createEmpty width height =
         { Pixels = Array.zeroCreate (width*height); Width = width }
 
-let private getFilteredSubBitmap (screenshot: SimpleBitmap) (rect: Rectangle) (pixelFilter: IntPixel -> bool) =
+let private filteredSubBitmap (screenshot: SimpleBitmap) (rect: Rectangle) (pixelFilter: IntPixel -> bool) =
     let subBitmap = SimpleBitmap.createEmpty rect.Width rect.Height
     seq { for y in 0 .. rect.Height-1 do
             for x in 0 .. rect.Width-1 -> (x, y, screenshot.GetPixel(rect.X + x, rect.Y + y)) }
@@ -92,6 +96,10 @@ let private getFilteredSubBitmap (screenshot: SimpleBitmap) (rect: Rectangle) (p
             if pixelFilter color then subBitmap.SetPixel(x,y,color)
             else subBitmap.SetPixel(x,y,0xff000000))
     subBitmap
+
+let private subBitmap (screenshot: SimpleBitmap) (rect: Rectangle) =
+    filteredSubBitmap screenshot rect (fun _ -> true)
+
 type BitmapMask =
     RectangleMask of Rectangle list | PolygonMask of Polygon
 
@@ -134,22 +142,22 @@ let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
  && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
 
 let private getDigitBitmap screenshot point =
-    getFilteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 10
+    filteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 10
 
 let private getCursorBitmap screenshot point =
-    getFilteredSubBitmap screenshot (Rectangle(point, cursorSize)) <| isWhitishPixel 200 10
+    filteredSubBitmap screenshot (Rectangle(point, cursorSize)) <| isWhitishPixel 200 10
 
 let private getPowerModifierBitmap screenshot (cardTopLeft: Point) =
     let rect = Rectangle(cardTopLeft + powerModifierOffset, powerModifierSize)
-    getFilteredSubBitmap screenshot rect (isWhitishPixel 160 10)
+    filteredSubBitmap screenshot rect (isWhitishPixel 160 10)
 
 let private getCardElementBitmap screenshot (cardTopLeft: Point) =
     let rect = Rectangle(cardTopLeft + cardElementOffset, elementSize)
-    getFilteredSubBitmap screenshot rect (fun _ -> true)
+    subBitmap screenshot rect
 
 let private getPlayGridSlotElementBitmap screenshot (cardTopLeft: Point) =
     let rect = Rectangle(cardTopLeft + playGridSlotElementOffset, elementSize)
-    getFilteredSubBitmap screenshot rect (fun _ -> true)
+    subBitmap screenshot rect
 
 let private playGridSlotElementMasks = [
         PolygonMask <| Polygon([0,56; 25,56; 25,58; 27,58; 27,63; 0,63])
@@ -392,7 +400,32 @@ let readGameState screenshot =
 
 let isAtCardSelectionConfirmationNo screenshot =
     isCursorAtPoint screenshot (Point(806, 603))
+
+let getGamePhaseDetectionBitmap (gamePhase: GamePhase) screenshot =
+    let rect = match gamePhase with
+                | Draw -> resultDrawRectangle
+                | Won -> resultWinRectangle
+                | Lost -> resultLoseRectangle
+                | _ -> invalidArg "gamePhase" "invalid"
+    subBitmap screenshot rect
+
+let modelGamePhaseDetectionBitmaps =
+    [(Won,  SimpleBitmap.fromFile(imageDir + @"model_result_won.png"))
+     (Draw, SimpleBitmap.fromFile(imageDir + @"model_result_draw.png"))
+     (Lost, SimpleBitmap.fromFile(imageDir + @"model_result_lost.png"))]
+
+let readGamePhase screenshot: GamePhase =
+    let mostLikelyInGamePhaseWithDiff =
+        modelGamePhaseDetectionBitmaps
+                    |> List.map (fun (gamePhase, modelBm) ->
+                            let actualBm = getGamePhaseDetectionBitmap gamePhase screenshot
+                            gamePhase, bitmapDiff actualBm modelBm)
+                    |> List.minBy snd
     
+    match mostLikelyInGamePhaseWithDiff with
+        | (gamePhase, diff) when diff < 0.03 -> gamePhase
+        | _ -> Ongoing
+
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
 
@@ -646,3 +679,11 @@ module Bootstrap =
         saveSlotElem 13 0 2 "wind2"
         saveSlotElem 14 0 2 "wind3"
         saveSlotElem 15 0 2 "wind4"
+
+    let saveResultDetectionBitmaps() =
+        (getGamePhaseDetectionBitmap Draw (SimpleBitmap.fromFile(screenshotDir + @"getting_out\result_draw.jpg")))
+            .Save(imageDir + "model_result_draw.png")
+        (getGamePhaseDetectionBitmap Won (SimpleBitmap.fromFile(screenshotDir + @"getting_out\result_win.jpg")))
+            .Save(imageDir + "model_result_won.png")
+        (getGamePhaseDetectionBitmap Lost (SimpleBitmap.fromFile(screenshotDir + @"getting_out\result_lost.jpg")))
+            .Save(imageDir + "model_result_lost.png")
