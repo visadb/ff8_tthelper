@@ -159,7 +159,7 @@ let startGame() =
     sendAndSleep "x" 2000 // Rules
     chooseCards()
 
-let playMatch() =
+let rec playMatch() =
     let mutable lastScreenshot = takeScreenshot()
     while readGamePhase lastScreenshot = Ongoing do
         let mutable state = readGameState lastScreenshot
@@ -173,8 +173,11 @@ let playMatch() =
             playOneTurn state
             Thread.Sleep 3000
             lastScreenshot <- takeScreenshot()
-    printfn "Game ended, result: %A" <| readGamePhase lastScreenshot
+    let result = readGamePhase lastScreenshot
+    printfn "Game ended, result: %A" result
     sendAndSleep "x" 2000 // Dismiss Won/Draw/Lost screen
+    if result = Draw then
+        playMatch()
 
 let chooseSpoils() =
     let spoilsSelectionNumber = readSpoilsSelectionNumber (takeScreenshot())
