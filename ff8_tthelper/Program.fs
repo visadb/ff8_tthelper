@@ -150,7 +150,6 @@ let chooseCards() =
         sendAndSleep "x" 2000
         printfn "Cards chosen!"
 
-
 let startGame() =
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
@@ -158,13 +157,30 @@ let startGame() =
     sendAndSleep "x" 2000 // Rules
     chooseCards()
 
+let playMatch() =
+    let mutable lastScreenshot = takeScreenshot()
+    while readGamePhase lastScreenshot = Ongoing do
+        let mutable state = readGameState lastScreenshot
+        while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
+            printfn "Waiting for my turn"
+            Thread.Sleep 2000
+            lastScreenshot <- takeScreenshot()
+            state <- readGameState lastScreenshot
+        if readGamePhase lastScreenshot = Ongoing then
+            printfn "My turn now, playing!"
+            playOneTurn state
+            Thread.Sleep 3000
+            lastScreenshot <- takeScreenshot()
+
+let chooseSpoils() =
+    ignore 123
 
 let autoPlay() =
     // assert/assume that outside
-    startGame()
-
-    let mutable state = null
-    123
+    while true do
+        startGame()
+        playMatch()
+        chooseSpoils()
 
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
@@ -184,16 +200,17 @@ let main argv =
     let sw = new System.Diagnostics.Stopwatch()
     sw.Start()
 
-    bootstrap()
+    //bootstrap()
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
 
-    //while true do
-    //    waitForUserToPressF12()
-    //    startGame()
+    while true do
+        waitForUserToPressF12()
+        startGame()
+        playMatch()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed
