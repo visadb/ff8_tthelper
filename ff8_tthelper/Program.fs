@@ -16,7 +16,8 @@ let bootstrap () =
     //Bootstrap.saveElementSymbolsFromExampleScreenshots()
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
-    Bootstrap.saveResultDetectionBitmaps()
+    //Bootstrap.saveResultDetectionBitmaps()
+    Bootstrap.saveSpoilsSelectionNumberBitmaps()
     ()
 
 let printState state =
@@ -94,6 +95,7 @@ let waitForUserToPressF12() =
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
     printfn "Press F12 inside game"
     let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
+    printfn "pressed"
     watcher.Dispose()
 
 let watchScreenshotDir () =
@@ -118,10 +120,8 @@ let sendAndSleep (key: string) (ms: int) =
 
 let takeScreenshot(): SimpleBitmap =
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
-    printfn "Waiting screenshot taken by me..."
     sendKey "F12"
     let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
-    printfn "Got %s" changedResult.Name
     Thread.Sleep 100
     try
         SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
@@ -131,6 +131,7 @@ let takeScreenshot(): SimpleBitmap =
             SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
 
 let chooseCards() = 
+    printfn "Choosing cards"
     sendAndSleep "Left" 200
     sendAndSleep "Up" 20
 
@@ -151,6 +152,7 @@ let chooseCards() =
         printfn "Cards chosen!"
 
 let startGame() =
+    printfn "Starting game"
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
     sendAndSleep "x" 2500 // Talking
@@ -162,8 +164,8 @@ let playMatch() =
     while readGamePhase lastScreenshot = Ongoing do
         let mutable state = readGameState lastScreenshot
         while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
-            printfn "Waiting for my turn"
-            Thread.Sleep 2000
+            printfn "Waiting for my turn..."
+            Thread.Sleep 5000
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
@@ -171,9 +173,22 @@ let playMatch() =
             playOneTurn state
             Thread.Sleep 3000
             lastScreenshot <- takeScreenshot()
+    printfn "Game ended, result: %A" <| readGamePhase lastScreenshot
+    sendAndSleep "x" 2000 // Dismiss Won/Draw/Lost screen
 
 let chooseSpoils() =
-    ignore 123
+    let spoilsSelectionNumber = readSpoilsSelectionNumber (takeScreenshot())
+    if spoilsSelectionNumber.IsSome then
+        printfn "Choosing %d cards for spoils" spoilsSelectionNumber.Value
+        for i in 1 .. spoilsSelectionNumber.Value do
+            sendAndSleep "x" 500
+            sendAndSleep "Right" 100
+        sendAndSleep "x" 1500
+        for i in 1 .. spoilsSelectionNumber.Value do
+            sendAndSleep "x" 1500
+    else
+        printfn "Nothing to do, waiting for game to end..."
+        Thread.Sleep 10000
 
 let autoPlay() =
     // assert/assume that outside
@@ -206,11 +221,14 @@ let main argv =
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
+    waitForUserToPressF12()
+    autoPlay()
 
-    while true do
-        waitForUserToPressF12()
-        startGame()
-        playMatch()
+    //while true do
+    //    waitForUserToPressF12()
+    //    startGame()
+    //    playMatch()
+    //    chooseSpoils()
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

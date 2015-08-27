@@ -46,6 +46,8 @@ let resultDrawRectangle = Rectangle(837, 438, 3, 205)
 let resultWinRectangle = Rectangle(1324, 438, 34, 78)
 let resultLoseRectangle = Rectangle(1320, 551, 47, 57)
 
+let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
+
 let flat row col = row*3 + col
 
 type IntPixel = System.Int32
@@ -426,6 +428,23 @@ let readGamePhase screenshot: GamePhase =
         | (gamePhase, diff) when diff < 0.03 -> gamePhase
         | _ -> Ongoing
 
+let getSpoilsSelectionNumberBitmap screenshot = subBitmap screenshot spoilsSelectNumberRectangle
+
+let modelSpoilsSelectionNumberBitmaps =
+    [(2, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_2.png"))
+     (4, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_4.png"))]
+
+let readSpoilsSelectionNumber screenshot =
+    let bm = getSpoilsSelectionNumberBitmap screenshot
+    let mostLikelySpoilsSelectionNumber =
+        modelSpoilsSelectionNumberBitmaps
+            |> List.map (fun (number, modelBm) -> number, bitmapDiff bm modelBm)
+            |> List.minBy snd
+    match mostLikelySpoilsSelectionNumber with
+        | (num, diff) when diff < 0.03 -> Some num
+        | _ -> None
+
+
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
 
@@ -687,3 +706,9 @@ module Bootstrap =
             .Save(imageDir + "model_result_won.png")
         (getGamePhaseDetectionBitmap Lost (SimpleBitmap.fromFile(screenshotDir + @"getting_out\result_lost.jpg")))
             .Save(imageDir + "model_result_lost.png")
+
+    let saveSpoilsSelectionNumberBitmaps() =
+        (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_2cards.jpg")))
+            .Save(imageDir + "model_spoils_number_2.png")
+        (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_4cards.jpg")))
+            .Save(imageDir + "model_spoils_number_4.png")
