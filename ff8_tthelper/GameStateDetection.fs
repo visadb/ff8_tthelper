@@ -431,7 +431,8 @@ let readGamePhase screenshot: GamePhase =
 let getSpoilsSelectionNumberBitmap screenshot = subBitmap screenshot spoilsSelectNumberRectangle
 
 let modelSpoilsSelectionNumberBitmaps =
-    [(2, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_2.png"))
+    [(1, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_1.png"))
+     (2, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_2.png"))
      (4, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_4.png"))]
 
 let readSpoilsSelectionNumber screenshot =
@@ -708,6 +709,8 @@ module Bootstrap =
             .Save(imageDir + "model_result_lost.png")
 
     let saveSpoilsSelectionNumberBitmaps() =
+        (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_1cards.jpg")))
+            .Save(imageDir + "model_spoils_number_1.png")
         (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_2cards.jpg")))
             .Save(imageDir + "model_spoils_number_2.png")
         (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_4cards.jpg")))
