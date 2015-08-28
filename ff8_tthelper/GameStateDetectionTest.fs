@@ -113,6 +113,11 @@ let gamePhaseReadCorrectly expectedGamePhase =
      let f = sprintf @"%sgetting_out\result_%s.jpg" screenshotDir ((sprintf "%A" expectedGamePhase).ToLower())
      readGamePhase (SimpleBitmap.fromFile(f)) |> should equal expectedGamePhase
 
+let numberOfCardsOnCardChoosingScreenReadCorrectly screenshotFilename num =
+    let ss = SimpleBitmap.fromFile(screenshotDir + screenshotFilename)
+    readNumberOfCardsOnCardChoosingScreen ss |> should equal num
+    
+
 [<TestFixture>]
 type ``Game state detector test`` ()=
     
@@ -131,3 +136,10 @@ type ``Game state detector test`` ()=
     [<Test>] member x.
      ``Game phase read correctly`` ()=
         [Won; Draw; Lost] |> List.iter gamePhaseReadCorrectly
+
+    [<Test>] member x.
+     ``Number of cards on card choosing screen read correctly`` ()=
+        numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page1.jpg" 11;
+        numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page7.jpg" 9
+        //let ss7 = SimpleBitmap.fromFile("card_selection_page7.jpg")
+        //readNumberOfCardsOnCardChoosingScreen ss1 |> should equal 11

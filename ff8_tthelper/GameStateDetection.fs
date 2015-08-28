@@ -48,6 +48,9 @@ let resultLoseRectangle = Rectangle(1320, 551, 47, 57)
 
 let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
 
+let cardChoosingScreenCardSymbolRectangle (i: int) =
+    Rectangle(509, 221 + int(58.5*float(i-1)), 6, 11)
+
 let flat row col = row*3 + col
 
 type IntPixel = System.Int32
@@ -446,6 +449,15 @@ let readSpoilsSelectionNumber screenshot =
         | (num, diff) when diff < 0.03 -> Some num
         | _ -> None
 
+let getCardChoosingScreenCardSymbolBitmap screenshot i =
+    subBitmap screenshot (cardChoosingScreenCardSymbolRectangle i)
+
+let modelCardSymbol = SimpleBitmap.fromFile(imageDir + @"model_card_symbol.png")
+
+let readNumberOfCardsOnCardChoosingScreen screenshot =
+    seq { for i in 2..12 ->
+            bitmapDiff (getCardChoosingScreenCardSymbolBitmap screenshot i) modelCardSymbol}
+        |> Seq.findIndex ((<) 0.03) |> ((+) 1)
 
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
@@ -716,3 +728,7 @@ module Bootstrap =
             .Save(imageDir + "model_spoils_number_2.png")
         (getSpoilsSelectionNumberBitmap (SimpleBitmap.fromFile(screenshotDir + @"getting_out\spoils_selection_cursor1_4cards.jpg")))
             .Save(imageDir + "model_spoils_number_4.png")
+
+    let saveCardChoosingScreenCardSymbolBitmap() =
+        let screenshot = SimpleBitmap.fromFile(screenshotDir + @"getting_in\card_selection_page1.jpg")
+        (getCardChoosingScreenCardSymbolBitmap screenshot 1).Save(imageDir + "model_card_symbol.png")

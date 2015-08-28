@@ -17,7 +17,8 @@ let bootstrap () =
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
     //Bootstrap.saveResultDetectionBitmaps()
-    Bootstrap.saveSpoilsSelectionNumberBitmaps()
+    //Bootstrap.saveSpoilsSelectionNumberBitmaps()
+    Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
     ()
 
 let printState state =
@@ -137,22 +138,33 @@ let takeScreenshot(): SimpleBitmap =
 
 let chooseCards() = 
     printfn "Choosing cards"
-    sendAndSleep "Left" 200
+
+    sendAndSleep "Left" 150
     sendAndSleep "Up" 20
 
-    let mutable triedCount = 0
-    while (triedCount < 14)
-          && ((triedCount < 5) || not (isAtCardSelectionConfirmationNo (takeScreenshot()))) do
-        sendAndSleep "x" 300
-        if triedCount > 0 && triedCount % 10 = 0 then
-            sendAndSleep "Left" 200
+    // put cursor on last card on page
+    let sw = System.Diagnostics.Stopwatch()
+    sw.Restart()
+    let numCardsOnPage = readNumberOfCardsOnCardChoosingScreen (takeScreenshot())
+    printfn "Detected %d cards on page (took %d ms)" numCardsOnPage <| sw.ElapsedMilliseconds
+    for i in 1 .. (11-numCardsOnPage) do
         sendAndSleep "Up" 20
-        triedCount <- triedCount + 1
 
-    if triedCount = 15 then
-        printfn "Card selection failed :(((("
-    else
-        sendAndSleep "Up" 30
+    let cardsToTakeFromLastPage = min 5 numCardsOnPage
+    for i in 1 .. cardsToTakeFromLastPage do
+        sendAndSleep "x" 20
+        if i <> cardsToTakeFromLastPage then
+            sendAndSleep "Up" 20
+
+    if numCardsOnPage < 5 then
+        sendAndSleep "Left" 150
+        sendAndSleep "Up" 20
+        for i in 1 .. 5-numCardsOnPage do
+            sendAndSleep "x" 20
+            if i <> (5-numCardsOnPage) then
+                sendAndSleep "Up" 20
+
+    Thread.Sleep 500
         sendAndSleep "x" 1800
         printfn "Cards chosen!"
 
