@@ -175,6 +175,7 @@ let rec playMatch() =
             lastScreenshot <- takeScreenshot()
     let result = readGamePhase lastScreenshot
     printfn "Game ended, result: %A" result
+    Thread.Sleep 500
     sendAndSleep "x" 2000 // Dismiss Won/Draw/Lost screen
     if result = Draw then
         playMatch()
@@ -224,6 +225,7 @@ let main argv =
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
+
     waitForUserToPressF12()
     autoPlay()
 
@@ -232,6 +234,11 @@ let main argv =
     //    startGame()
     //    playMatch()
     //    chooseSpoils()
+
+    //while true do
+    //    waitForUserToPressF12()
+    //    let state = readGameState <| takeScreenshot()
+    //    playGame state
 
     sw.Stop()
     printfn "Time elapsed: %A" sw.Elapsed

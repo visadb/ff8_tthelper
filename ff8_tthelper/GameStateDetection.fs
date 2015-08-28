@@ -84,6 +84,7 @@ type SimpleBitmap =
                                        Imaging.PixelFormat.Format32bppArgb)
         let pixels: IntPixel[] = Array.zeroCreate <| abs(lockInfo.Stride) * bitmap.Height / 4
         System.Runtime.InteropServices.Marshal.Copy(lockInfo.Scan0, pixels, 0, pixels.Length)
+        bitmap.UnlockBits(lockInfo)
         bitmap.Dispose()
         { Pixels = pixels; Width = lockInfo.Width }
         
