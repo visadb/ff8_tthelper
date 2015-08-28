@@ -55,23 +55,24 @@ let sendScript = System.IO.Directory.GetCurrentDirectory() + @"\..\..\send.ahk"
 let sendKey key =
     let proc = System.Diagnostics.Process.Start(ahkProg, sendScript+" "+key)
     proc.WaitForExit()
-    
-
+let sendAndSleep (key: string) (ms: int) =
+    sendKey key
+    Thread.Sleep ms
 let playOneTurn state =
     let sw = System.Diagnostics.Stopwatch()
     let selectHandCard offset = 
         printfn "Selecting hand card: %d" offset
         let key = if offset < 0 then "Up" else "Down"
         for i in 1 .. abs offset do
-            sendKey key
-        sendKey "x"
+            sendAndSleep key 20
+        sendAndSleep "x" 20
     let selectTargetSlot rowOffset colOffset =
         printfn "Selecting target slot: (%d, %d)" rowOffset colOffset
-        if rowOffset = -1 then sendKey "Up"
-        elif rowOffset = 1 then sendKey "Down"
-        if colOffset = -1 then sendKey "Left"
-        elif colOffset = 1 then sendKey "Right"
-        sendKey "x"
+        if rowOffset = -1 then sendAndSleep "Up" 20
+        elif rowOffset = 1 then sendAndSleep "Down" 20
+        if colOffset = -1 then sendAndSleep "Left" 20
+        elif colOffset = 1 then sendAndSleep "Right" 20
+        sendAndSleep "x" 20
 
     sw.Restart()
     let (srcHandIndex, targetGridIndex), value = AI.getBestMove state 9
@@ -114,10 +115,6 @@ let watchScreenshotDir () =
         else
             printfn "My turn, playing!"
             playOneTurn state
-
-let sendAndSleep (key: string) (ms: int) =
-    sendKey key
-    Thread.Sleep ms
 
 let takeScreenshot(): SimpleBitmap =
     let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
@@ -165,14 +162,14 @@ let chooseCards() =
                 sendAndSleep "Up" 20
 
     Thread.Sleep 500
-        sendAndSleep "x" 1800
-        printfn "Cards chosen!"
+    sendAndSleep "x" 1800
+    printfn "Cards chosen!"
 
 let startGame() =
     printfn "Starting game"
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
-    sendAndSleep "x" 2500 // Talking
+    sendAndSleep "x" 2000 // Talking
     sendAndSleep "x" 1700 // Rules
     chooseCards()
 
@@ -216,11 +213,17 @@ let chooseSpoils() =
         Thread.Sleep 10000
 
 let autoPlay() =
+    waitForUserToPressF12()
     // assert/assume that outside
     while true do
         startGame()
         playMatch()
         chooseSpoils()
+
+let playOneTurnAtATime() =
+    while true do
+        waitForUserToPressF12()
+        playOneTurn (readGameState (takeScreenshot()))
 
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
@@ -247,21 +250,10 @@ let main argv =
     //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
     //playTestState()
 
-    waitForUserToPressF12()
     autoPlay()
-
-    //while true do
-    //    waitForUserToPressF12()
-    //    startGame()
-    //    playMatch()
-    //    chooseSpoils()
-
-    //while true do
-    //    waitForUserToPressF12()
-    //    let state = readGameState <| takeScreenshot()
-    //    playGame state
+    //playOneTurnAtATime()
 
     sw.Stop()
-    printfn "Time elapsed: %A" sw.Elapsed
+    printfn "Time elapsed: %d ms" sw.ElapsedMilliseconds
 
     0
