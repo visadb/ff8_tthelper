@@ -184,6 +184,10 @@ let chooseSpoils() =
     let spoilsSelectionNumber = readSpoilsSelectionNumber (takeScreenshot())
     if spoilsSelectionNumber.IsSome then
         printfn "Choosing %d cards for spoils" spoilsSelectionNumber.Value
+        if spoilsSelectionNumber.Value = 1 then
+            // Randomize chosen card
+            for i in 1 .. System.Random().Next() % 5 do
+                sendAndSleep "Right" 100
         for i in 1 .. spoilsSelectionNumber.Value do
             sendAndSleep "x" 500
             sendAndSleep "Right" 100
