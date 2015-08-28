@@ -143,7 +143,7 @@ let chooseCards() =
     let mutable triedCount = 0
     while (triedCount < 14)
           && ((triedCount < 5) || not (isAtCardSelectionConfirmationNo (takeScreenshot()))) do
-        sendAndSleep "x" 400
+        sendAndSleep "x" 300
         if triedCount > 0 && triedCount % 10 = 0 then
             sendAndSleep "Left" 200
         sendAndSleep "Up" 20
@@ -153,7 +153,7 @@ let chooseCards() =
         printfn "Card selection failed :(((("
     else
         sendAndSleep "Up" 30
-        sendAndSleep "x" 2000
+        sendAndSleep "x" 1800
         printfn "Cards chosen!"
 
 let startGame() =
@@ -161,7 +161,7 @@ let startGame() =
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
     sendAndSleep "x" 2500 // Talking
-    sendAndSleep "x" 2000 // Rules
+    sendAndSleep "x" 1700 // Rules
     chooseCards()
 
 let rec playMatch() =
@@ -170,13 +170,13 @@ let rec playMatch() =
         let mutable state = readGameState lastScreenshot
         while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
             printfn "Waiting for my turn..."
-            Thread.Sleep 5000
+            Thread.Sleep 1000
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
             printfn "My turn now, playing!"
             playOneTurn state
-            Thread.Sleep 3000
+            Thread.Sleep 2800
             lastScreenshot <- takeScreenshot()
     let result = readGamePhase lastScreenshot
     printfn "Game ended, result: %A" result
@@ -192,13 +192,13 @@ let chooseSpoils() =
         if spoilsSelectionNumber.Value = 1 then
             // Randomize chosen card
             for i in 1 .. System.Random().Next() % 5 do
-                sendAndSleep "Right" 100
+                sendAndSleep "Right" 80
         for i in 1 .. spoilsSelectionNumber.Value do
-            sendAndSleep "x" 500
-            sendAndSleep "Right" 100
-        sendAndSleep "x" 1500
+            sendAndSleep "x" 400
+            sendAndSleep "Right" 80
+        sendAndSleep "x" 1300
         for i in 1 .. spoilsSelectionNumber.Value do
-            sendAndSleep "x" 1500
+            sendAndSleep "x" 1300
     else
         printfn "Nothing to do, waiting for game to end..."
         Thread.Sleep 10000
