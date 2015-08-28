@@ -123,12 +123,17 @@ let takeScreenshot(): SimpleBitmap =
     sendKey "F12"
     let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
     Thread.Sleep 100
+    let filename = steamScreenshotDir + @"\" + changedResult.Name
     try
-        SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
+        let ss = SimpleBitmap.fromFile(filename)
+        System.IO.File.Delete(filename)
+        ss
     with
         | _ -> // retry
             Thread.Sleep 100
-            SimpleBitmap.fromFile(steamScreenshotDir + @"\" + changedResult.Name)
+            let ss = SimpleBitmap.fromFile(filename)
+            System.IO.File.Delete(filename)
+            ss
 
 let chooseCards() = 
     printfn "Choosing cards"
