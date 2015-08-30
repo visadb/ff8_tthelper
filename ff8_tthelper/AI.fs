@@ -2,21 +2,21 @@
 
 open DomainTypes
 
-let isTerminalNode (node: GameState) =
+let inline isTerminalNode (node: GameState) =
     node.myHand.[4].IsNone || node.opHand.[4].IsNone
 
-let private countHandCards (hand: Hand) =
+let inline countHandCards (hand: Hand) =
     let firstFullIndex = (hand |> Array.tryFindIndex Option.isSome)
     if firstFullIndex.IsSome then 5 - firstFullIndex.Value else 0
 
-let emptyNeighbors (node: GameState) gi =
+let inline emptyNeighbors (node: GameState) gi =
     [gi-3,0; gi-1,1; gi+1,2; gi+3,3]
         |> List.filter (fun (ngi,_) ->
             ngi >= 0 && ngi <= 8
          && ((gi%3 = ngi%3) <> (gi/3 = ngi/3)) // Either row or col changed, not both
          && node.playGrid.[ngi].isEmpty)
 
-let canCardBeCaptured (node: GameState)
+let inline canCardBeCaptured (node: GameState)
                       (otherPlayerMaxPowers: int array array)
                       (gridIndex: int)
                       (gridSlot: PlayGridSlot) =
@@ -24,7 +24,7 @@ let canCardBeCaptured (node: GameState)
         otherPlayerMaxPowers.[neighborIndex].[3-powerIndex] > gridSlot.card.powers.[powerIndex])
     ret
 
-let evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots gridIndex gridSlot =
+let inline evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots gridIndex gridSlot =
     match gridSlot with
         | Empty _ -> 0
         | Full c ->
@@ -32,23 +32,23 @@ let evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInS
             let canBeCaptured = canCardBeCaptured node otherPlayerMaxPowers gridIndex gridSlot
             (if c.owner = Me then 1 else -1) * (if canBeCaptured then 5 else 15)
     
-let cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
+let inline cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
     match slotElem with
         | None -> card.powers
         | eo -> card.powers |> Array.map (if eo = slotElem then ((+) 1) else (fun i -> i-1))
-let maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
+let inline maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
     hand |> Array.fold (fun maxPs oc ->
                             match oc with
                                 | None -> maxPs
                                 | Some c -> cardPowersInGridSlotWithElement c elem) [|-1;-1;-1;-1|]
-let handMaxPowersInEmptyGridSlots (node: GameState) hand =
+let inline handMaxPowersInEmptyGridSlots (node: GameState) hand =
     node.playGrid.Slots |> Array.map (fun slot ->
         match slot with
             | Full _ -> Array.empty
             | Empty e -> maxPowersInGridSlotWithElem hand e
     )
 
-let evaluateNode (node: GameState) =
+let inline evaluateNode (node: GameState) =
     let myHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.myHand
     let opHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.opHand
     let gridValue = node.playGrid.Slots |> Array.mapi (evaluateGridSlot node
@@ -57,61 +57,66 @@ let evaluateNode (node: GameState) =
                                           |> Array.sum
     gridValue + (countHandCards node.myHand)*10 - (countHandCards node.opHand)*10
 
-let cardBalance (node: GameState) =
+let inline cardBalance (node: GameState) =
     let gridBalance = node.playGrid.Slots |> Array.sumBy (function
         | Empty _ -> 0 
         | Full c -> if c.owner = Me then 1 else -1)
     gridBalance + (countHandCards node.myHand) - (countHandCards node.opHand)
 
-let private handWithout handIndex hand =
-    let newHand = Array.copy hand
+let inline private handWithout newHand handIndex hand =
+    if handIndex < 4 then
+        Array.blit hand (handIndex+1) newHand (handIndex+1) (4 - handIndex)
     Array.blit hand 0 newHand 1 handIndex
     newHand.[0] <- None
     newHand
 
-let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCard: Card) =
-    let newGridSlots = Array.copy playGrid.Slots
+let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (gi: int) (newCard: Card) =
+    Array.blit playGrid.Slots 0 newPlayGrid.Slots 0 9
 
     let updateTargetSlot () =
-        let targetSlot = playGrid.[playGridIndex]
+        let targetSlot = playGrid.[gi]
         let updatedCard = if targetSlot.element.IsNone
                              then newCard
                              else let modifier = if targetSlot.element = newCard.element then +1 else -1
                                   { newCard with powerModifier = modifier}
-        newGridSlots.[playGridIndex] <- Full updatedCard
-                                        
-    let updateNeighbor rowOffset colOffset thisPowerIndex =
-        let neighborIndex = playGridIndex + rowOffset*3 + colOffset
-                                
-        if neighborIndex >= 0 && neighborIndex <= 8 && (neighborIndex%3 - playGridIndex%3 = colOffset) then
+        newPlayGrid.Slots.[gi] <- Full updatedCard
+
+    let newCardOwner = newCard.owner
+    let updateNeighbor neighborIndex colOffset thisPowerIndex =
+        if   neighborIndex >= 0 && neighborIndex <= 8
+          && (colOffset <> -1 || (gi <> 3 && gi <> 6))
+          && (colOffset <> +1 || (gi <> 2 && gi <> 5)) then
             let neighborSlot = playGrid.[neighborIndex]
-            let otherPowerIndex = 3 - thisPowerIndex
-            if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
-                let updatedNewCard = newGridSlots.[playGridIndex].card
-                let neighborPower = neighborSlot.card.modifiedPower otherPowerIndex
+            if neighborSlot.isFull && neighborSlot.card.owner <> newCardOwner then
+                let updatedNewCard = newPlayGrid.[gi].card
+                let neighborPower = neighborSlot.card.modifiedPower (3 - thisPowerIndex)
                 if neighborPower < updatedNewCard.modifiedPower thisPowerIndex then
-                   newGridSlots.[neighborIndex] <- Full { neighborSlot.card with owner = newCard.owner }
+                   newPlayGrid.Slots.[neighborIndex] <- Full { neighborSlot.card with owner = newCardOwner }
 
     updateTargetSlot ()
-    updateNeighbor -1  0 0 // top
-    updateNeighbor  0 -1 1 // left
-    updateNeighbor  0 +1 2 // right
-    updateNeighbor +1  0 3 // bottom
-    PlayGrid(newGridSlots)
+    updateNeighbor (gi-3+0)  0 0 // top
+    updateNeighbor (gi-0-1) -1 1 // left
+    updateNeighbor (gi-0+1) +1 2 // right
+    updateNeighbor (gi+3+0)  0 3 // bottom
 
-let executeMove (node: GameState) (handIndex,playGridIndex) =
+let inline executeMovePrealloc newPlayGrid newHand (node: GameState) (handIndex,playGridIndex) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection 4
-    let newOpHand = if isMaximizingPlayer then node.opHand else handWithout handIndex node.opHand
-    let newMyHand = if not isMaximizingPlayer then node.myHand else handWithout handIndex node.myHand
+    let newOpHand = if isMaximizingPlayer then node.opHand else handWithout newHand handIndex node.opHand
+    let newMyHand = if not isMaximizingPlayer then node.myHand else handWithout newHand handIndex node.myHand
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
-    let newPlayGrid = playGridWithNewCard node.playGrid playGridIndex sourceHand.[handIndex].Value
+    updatePlayGrid newPlayGrid node.playGrid playGridIndex sourceHand.[handIndex].Value
     { turnPhase = newTurnPhase; myHand = newMyHand; opHand = newOpHand; playGrid = newPlayGrid}
 
-let childStates (node: GameState) =
+let executeMove = executeMovePrealloc (PlayGrid(Array.create 9 (Empty None))) (Array.create 5 None)
+
+let preallocPlayGrids = [| for i in 1 .. 5*9*9 -> PlayGrid(Array.create 9 (Empty None)) |]
+let preallocHands: Hand[] = [| for i in 1 .. 5*9*9 -> Array.create 5 None |]
+
+let inline childStates (node: GameState) depth =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
-    let isValidMove handIndex playGridIndex =
+    let inline isValidMove handIndex playGridIndex =
         sourceHand.[handIndex].IsSome && node.playGrid.[playGridIndex].isEmpty
 
     let mutable validMoves = []
@@ -120,7 +125,12 @@ let childStates (node: GameState) =
             if isValidMove handIndex playGridIndex then
                 validMoves <- (handIndex, playGridIndex) :: validMoves
     let movesWithStates = validMoves |> List.toArray
-                                     |> Array.map (fun move ->  move,(executeMove node move))
+                                     |> Array.map (fun (hi,gi) -> 
+                                            let move = (hi,gi)
+                                            let preallocIndex = (depth-1)*5*9 + hi*9+gi
+                                            move,(executeMovePrealloc preallocPlayGrids.[preallocIndex]
+                                                                      preallocHands.[preallocIndex]
+                                                                      node move))
     if isMaximizingPlayer && sourceHand.[0].IsSome then
         movesWithStates |> Array.sortInPlaceBy (fun ((_,gi),s) ->
             if canCardBeCaptured s (handMaxPowersInEmptyGridSlots s s.opHand) gi s.playGrid.[gi]
@@ -133,24 +143,20 @@ let rec private alphaBeta node depth alpha beta: (int*int)*int =
         (-1, -1), cardBalance node
     elif node.turnPhase <> OpponentsTurn then
         let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove alpha2 =
-            match children with
-                | _ when beta <= alpha2 -> (bestMove,v)
-                | _ when childrenIndex = children.Length -> (bestMove,v)
-                | _ ->
-                    let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha2 beta
-                    if newV > v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (max alpha2 newV)
-                                else loopChildren children (childrenIndex+1) v bestMove alpha2
-        loopChildren (childStates node) 0 System.Int32.MinValue (-1,-1) alpha
+            if beta <= alpha2 || childrenIndex = children.Length
+            then (bestMove,v)
+            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha2 beta
+                 if newV > v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (max alpha2 newV)
+                             else loopChildren children (childrenIndex+1) v bestMove alpha2
+        loopChildren (childStates node depth) 0 System.Int32.MinValue (-1,-1) alpha
     else
         let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove beta2 =
-            match children with
-                | _ when beta2 <= alpha -> (bestMove,v)
-                | _ when childrenIndex = children.Length -> (bestMove,v)
-                | _ ->
-                    let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha beta2
-                    if newV < v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (min beta2 newV)
-                                else loopChildren children (childrenIndex+1) v bestMove beta2
-        loopChildren (childStates node) 0 System.Int32.MaxValue (-1,-1) beta
+            if beta2 <= alpha || childrenIndex = children.Length
+            then (bestMove,v)
+            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) (depth - 1) alpha beta2
+                 if newV < v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (min beta2 newV)
+                             else loopChildren children (childrenIndex+1) v bestMove beta2
+        loopChildren (childStates node depth) 0 System.Int32.MaxValue (-1,-1) beta
        
 let getBestMove node depth =
     alphaBeta node depth System.Int32.MinValue System.Int32.MaxValue
