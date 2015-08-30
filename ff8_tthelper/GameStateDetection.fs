@@ -537,8 +537,9 @@ module Bootstrap =
         let screenshot = SimpleBitmap.fromFile(screenshotDir + @"in-game\example_screenshot_1.jpg") |> blurBitmap
 
         let cursorBitmap = getCursorBitmap screenshot cardSelectionCursorPositions.[0]
-        let cursorMask =
-            RectangleMask [Rectangle(2,6,56,34); Rectangle(31,1,36,19); Rectangle(27,28,23,18)]
+        let cursorMask = BitmapMask.fromPoints [10,8;12,6;21,8;32,3;66,3;66,19;56,19;54,22;57,25;57,35;
+                                                45,40;43,38;41,45;28,45;33,41;31,36;15,35;12,32;9,37
+                                                5,32;2,30;2,21;5,20;7,12;9,11]
         maskBitmap cursorMask cursorBitmap
         cursorBitmap.Save(imageDir + "cursor.png")
 
