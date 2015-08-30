@@ -4,6 +4,7 @@ open FsUnit
 open NUnit.Framework
 open System.Drawing
 
+open BitmapHelpers
 open DomainTypes
 open GameStateDetection
 
@@ -141,5 +142,3 @@ type ``Game state detector test`` ()=
      ``Number of cards on card choosing screen read correctly`` ()=
         numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page1.jpg" 11;
         numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page7.jpg" 9
-        //let ss7 = SimpleBitmap.fromFile("card_selection_page7.jpg")
-        //readNumberOfCardsOnCardChoosingScreen ss1 |> should equal 11

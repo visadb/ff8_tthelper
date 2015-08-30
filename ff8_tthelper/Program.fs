@@ -1,6 +1,7 @@
 ﻿open GameStateDetection
 
 open DomainTypes
+open BitmapHelpers
 open GameStateDetectionTest
 
 open System.Drawing

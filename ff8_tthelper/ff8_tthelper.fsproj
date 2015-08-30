@@ -59,6 +59,7 @@
   <ItemGroup>
     <None Include="App.config" />
     <Compile Include="Polygon.fs" />
+    <Compile Include="BitmapHelpers.fs" />
     <Compile Include="DomainTypes.fs" />
     <Compile Include="GameStateDetection.fs" />
     <Compile Include="GameStateDetectionTest.fs" />
