@@ -413,7 +413,7 @@ module Bootstrap =
         let digitNames = digitBitmapsFromScreenshot |> Map.toList |> List.map fst
         for modelDigit in 1 .. 9 do
             for screenshotDigitName in digitNames do
-                let modelDigitName = sprintf "%d_1" modelDigit
+                let modelDigitName = modelDigit.ToString()
                 let modelBitmap = SimpleBitmap.fromFile(imageDir + "digit"+modelDigitName+".png")
                 let diff = bitmapDiff modelBitmap (digitBitmapsFromScreenshot.Item screenshotDigitName)
                 diffs <- (diff, modelDigitName, screenshotDigitName) :: diffs
