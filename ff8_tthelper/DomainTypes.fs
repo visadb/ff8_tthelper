@@ -41,14 +41,22 @@ let playGridSlotToString slot =
         | Full c -> c.ToString()
         | Empty e -> sprintf "Empty GridSlot (%A)" e
 
-type PlayGrid =
-    { slots: PlayGridSlot array }
+type PlayGrid(slots: PlayGridSlot array) =
+    member x.Item(i) = Array.get slots i
+    member x.Item(row, col) = Array.get slots (row*3 + col)
+    member x.Slots = slots
+
+    static member Empty = PlayGrid([| for i in 1..9 -> Empty None |])
+
+    override this.Equals(other: obj) =
+        this.Slots = (other :?> PlayGrid).Slots
+    override this.GetHashCode() =
+        this.Slots.GetHashCode()
     override g.ToString() =
-        "PlayGrid:\n    " + ([ for y in 0..2 -> g.slots.[y*3 .. y*3+2] |> Array.map playGridSlotToString |> String.concat "\t" ]
+        "PlayGrid:\n    " + ([ for y in 0..2 -> slots.[y*3 .. y*3+2] |> Array.map playGridSlotToString |> String.concat "\t" ]
                             |> String.concat "\n    ")
 
 type Hand = Card option array
-
 
 let private powerModifierChar c = match c.powerModifier with -1 -> '-' | 0 -> ' ' | 1 -> '+' | _ -> '?'
 let private elementChar element =
@@ -91,11 +99,11 @@ type GameState =
             let r = gridRow.Value
             sprintf "%s %c%s |%c%s |%c%s %c%s" (handSlotString x.opHand.[handIndex])
                                                (gridSlotSelectedChar x.turnPhase (r,0))
-                                               (gridSlotString x.playGrid.slots.[r*3+0])
+                                               (gridSlotString x.playGrid.[r,0])
                                                (gridSlotSelectedChar x.turnPhase (r,1))
-                                               (gridSlotString x.playGrid.slots.[r*3+1])
+                                               (gridSlotString x.playGrid.[r,1])
                                                (gridSlotSelectedChar x.turnPhase (r,2))
-                                               (gridSlotString x.playGrid.slots.[r*3+2])
+                                               (gridSlotString x.playGrid.[r,2])
                                                (handSelectedChar x.turnPhase handIndex)
                                                (handSlotString x.myHand.[handIndex])
         else

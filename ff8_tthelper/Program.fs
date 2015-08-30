@@ -234,9 +234,10 @@ let playTestState() =
             turnPhase = OpponentsTurn
             myHand = [|None; None; None; None             ; hc [1;2;1;1] Me n|]
             opHand = [|None; None; None; hc [1;1;1;1] Op n; hc [1;1;2;1] Op n|]
-            playGrid = { slots = [| pc [1;1;1;1] Me 0; pc [1;1;1;1] Op 0; pc [1;1;1;1] Me 0
+            playGrid = PlayGrid([| pc [1;1;1;1] Me 0; pc [1;1;1;1] Op 0; pc [1;1;1;1] Me 0
                                     pc [1;1;2;1] Op 0; emptySlot        ; pc [1;2;1;1] Me 0
-                                    pc [1;1;1;1] Op 0; emptySlot        ; pc [1;1;1;1] Me 0 |] } }
+                                   pc [1;1;1;1] Op 0; emptySlot        ; pc [1;1;1;1] Me 0 |])
+    }
     playGame state
 
 [<EntryPoint>]

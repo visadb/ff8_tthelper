@@ -248,13 +248,12 @@ let private readEmptyPlayGridSlotElement screenshot row col: Element option =
             |> snd)
 
 let private readPlayGrid screenshot: PlayGrid =
-    { slots =
-        playGridCardPositions
-            |> Array.map (readCard screenshot None None (Some Element.Unknown))
-            |> Array.mapi (fun i oc ->
-                    match oc with
-                        | Some(c) -> Full c
-                        | None -> Empty (readEmptyPlayGridSlotElement screenshot (i/3) (i%3))) }
+    PlayGrid(playGridCardPositions
+                |> Array.map (readCard screenshot None None (Some Element.Unknown))
+                |> Array.mapi (fun i oc ->
+                        match oc with
+                            | Some(c) -> Full c
+                            | None -> Empty (readEmptyPlayGridSlotElement screenshot (i/3) (i%3))))
 
 let private swap f a b = f b a
 
@@ -275,8 +274,8 @@ let private readTurnPhase screenshot =
         | Some i when isCursorAtPoint screenshot cardSelectionCursorPositions.[i] -> MyCardSelection i
         | Some i -> MyTargetSelection (i, targetSelectionPosition.Force().Value)
 
-let readGameState screenshot = 
-    let turnPhase = readTurnPhase screenshot
+let readGameStateWithTurnPhase forcedTurnPhase screenshot = 
+    let turnPhase = defaultArg forcedTurnPhase (readTurnPhase screenshot)
     let opHand = lazy readHand screenshot Op opponentHandCardPositions None
     let myHandWithSelectedCardIndex = readHand screenshot Me myHandCardPositions
     let playGrid = lazy readPlayGrid screenshot
@@ -284,7 +283,7 @@ let readGameState screenshot =
         | OpponentsTurn -> { turnPhase = turnPhase
                              opHand = Array.empty
                              myHand = Array.empty
-                             playGrid = { slots = [||] } }
+                             playGrid = PlayGrid.Empty }
         | MyCardSelection i -> { turnPhase = turnPhase
                                  opHand = opHand.Force()
                                  myHand = myHandWithSelectedCardIndex (Some i)
@@ -293,6 +292,8 @@ let readGameState screenshot =
                                         opHand = opHand.Force()
                                         myHand = myHandWithSelectedCardIndex (Some i)
                                         playGrid = playGrid.Force() }
+
+let readGameState = readGameStateWithTurnPhase None
 
 let isAtCardSelectionConfirmationNo screenshot =
     isCursorAtPoint screenshot (Point(806, 603))

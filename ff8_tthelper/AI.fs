@@ -14,7 +14,7 @@ let emptyNeighbors (node: GameState) gi =
         |> List.filter (fun (ngi,_) ->
             ngi >= 0 && ngi <= 8
          && ((gi%3 = ngi%3) <> (gi/3 = ngi/3)) // Either row or col changed, not both
-         && node.playGrid.slots.[ngi].isEmpty)
+         && node.playGrid.[ngi].isEmpty)
 
 let canCardBeCaptured (node: GameState)
                       (otherPlayerMaxPowers: int array array)
@@ -42,7 +42,7 @@ let maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
                                 | None -> maxPs
                                 | Some c -> cardPowersInGridSlotWithElement c elem) [|-1;-1;-1;-1|]
 let handMaxPowersInEmptyGridSlots (node: GameState) hand =
-    node.playGrid.slots |> Array.map (fun slot ->
+    node.playGrid.Slots |> Array.map (fun slot ->
         match slot with
             | Full _ -> Array.empty
             | Empty e -> maxPowersInGridSlotWithElem hand e
@@ -51,14 +51,14 @@ let handMaxPowersInEmptyGridSlots (node: GameState) hand =
 let evaluateNode (node: GameState) =
     let myHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.myHand
     let opHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.opHand
-    let gridValue = node.playGrid.slots |> Array.mapi (evaluateGridSlot node
+    let gridValue = node.playGrid.Slots |> Array.mapi (evaluateGridSlot node
                                                                         myHandMaxPowersInSlots
                                                                         opHandMaxPowersInSlots)
                                           |> Array.sum
     gridValue + (countHandCards node.myHand)*10 - (countHandCards node.opHand)*10
 
 let cardBalance (node: GameState) =
-    let gridBalance = node.playGrid.slots |> Array.sumBy (function
+    let gridBalance = node.playGrid.Slots |> Array.sumBy (function
         | Empty _ -> 0 
         | Full c -> if c.owner = Me then 1 else -1)
     gridBalance + (countHandCards node.myHand) - (countHandCards node.opHand)
@@ -70,10 +70,10 @@ let private handWithout handIndex hand =
     newHand
 
 let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCard: Card) =
-    let newGridSlots = Array.copy playGrid.slots
+    let newGridSlots = Array.copy playGrid.Slots
 
     let updateTargetSlot () =
-        let targetSlot = playGrid.slots.[playGridIndex]
+        let targetSlot = playGrid.[playGridIndex]
         let updatedCard = if targetSlot.element.IsNone
                              then newCard
                              else let modifier = if targetSlot.element = newCard.element then +1 else -1
@@ -84,7 +84,7 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
         let neighborIndex = playGridIndex + rowOffset*3 + colOffset
                                 
         if neighborIndex >= 0 && neighborIndex <= 8 && (neighborIndex%3 - playGridIndex%3 = colOffset) then
-            let neighborSlot = playGrid.slots.[neighborIndex]
+            let neighborSlot = playGrid.[neighborIndex]
             let otherPowerIndex = 3 - thisPowerIndex
             if neighborSlot.isFull && neighborSlot.card.owner <> newCard.owner then
                 let updatedNewCard = newGridSlots.[playGridIndex].card
@@ -97,7 +97,7 @@ let private playGridWithNewCard (playGrid: PlayGrid) (playGridIndex: int) (newCa
     updateNeighbor  0 -1 1 // left
     updateNeighbor  0 +1 2 // right
     updateNeighbor +1  0 3 // bottom
-    { slots = newGridSlots}
+    PlayGrid(newGridSlots)
 
 let executeMove (node: GameState) (handIndex,playGridIndex) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
@@ -112,7 +112,7 @@ let childStates (node: GameState) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
     let isValidMove handIndex playGridIndex =
-        sourceHand.[handIndex].IsSome && node.playGrid.slots.[playGridIndex].isEmpty
+        sourceHand.[handIndex].IsSome && node.playGrid.[playGridIndex].isEmpty
 
     let mutable validMoves = []
     for handIndex in 4 .. -1 .. 0 do
@@ -123,7 +123,9 @@ let childStates (node: GameState) =
                                      |> Array.map (fun move ->  move,(executeMove node move))
     if isMaximizingPlayer && sourceHand.[0].IsSome then
         movesWithStates |> Array.sortInPlaceBy (fun ((_,gi),s) ->
-            if canCardBeCaptured s (handMaxPowersInEmptyGridSlots s s.opHand) gi s.playGrid.slots.[gi] then 1 else -1)
+            if canCardBeCaptured s (handMaxPowersInEmptyGridSlots s s.opHand) gi s.playGrid.[gi]
+            then 1
+            else -1)
     movesWithStates
 
 let rec private alphaBeta node depth alpha beta: (int*int)*int =
