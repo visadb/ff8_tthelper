@@ -107,11 +107,16 @@ let private subBitmap (screenshot: SimpleBitmap) (rect: Rectangle) =
     filteredSubBitmap screenshot rect (fun _ -> true)
 
 type BitmapMask =
-    RectangleMask of Rectangle list | PolygonMask of Polygon
+    RectangleMask of Rectangle seq | PolygonMask of Polygon
 
+    static member fromXYWHs(xywhs: (int*int*int*int) seq) =
+        RectangleMask (xywhs |> Seq.map Rectangle)
+
+    static member fromPoints(points: (int*int) list) = PolygonMask <| Polygon(points)
+    
     member this.Contains ((x,y): int*int): bool =
         match this with
-           | RectangleMask masks -> masks |> List.exists (fun rect -> rect.Contains(x, y))
+           | RectangleMask masks -> masks |> Seq.exists (fun rect -> rect.Contains(x, y))
            | PolygonMask polygon -> polygon.Contains(x, y)
         
 let private rectanglePoints (size: Size) =
@@ -148,7 +153,7 @@ let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
  && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
 
 let private getDigitBitmap screenshot point =
-    filteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 10
+    filteredSubBitmap screenshot (Rectangle(point, digitSize)) <| isWhitishPixel 130 13
 
 let private getCursorBitmap screenshot point =
     filteredSubBitmap screenshot (Rectangle(point, cursorSize)) <| isWhitishPixel 200 10
@@ -297,11 +302,9 @@ let private readCardElement screenshot (cardTopLeft: Point): Element option =
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
 let modelDigits: SimpleBitmap list =
-    let getModelDigitBitmapFromDisk(digit: int): SimpleBitmap =
-        SimpleBitmap.fromFile(imageDir + "digit" + digit.ToString() + "_1.png")
-    [ for i in 1..9 -> getModelDigitBitmapFromDisk(i) ]
+    [ for i in 1..9 -> SimpleBitmap.fromFile(imageDir + "digit" + i.ToString() + ".png") ]
 
-let private readDigitValue digitBitmap: int option =
+let private readDigitValue (digitBitmap: SimpleBitmap): int option =
     let candidatesWithDiffs =
         modelDigits |> List.mapi (fun i modelDigit -> (i+1, bitmapDiff digitBitmap modelDigit))
                     |> List.filter (snd >> ((>) 0.16))
@@ -462,25 +465,35 @@ let readNumberOfCardsOnCardChoosingScreen screenshot =
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
 
-    let digitMasks: Rectangle list array =
-        [| [];
-           [(4,1,12,35)];
-           [(0,0,25,9); (12,9,13,11); (0,20,15,16); (14,24,12,11)];
-           [(3,0,20,5); (9,5,16,31); (0,27,9,9)];
-           [(0,19,12,10); (2,14,6,5); (5,10,6,5); (7,4,5,7); (12,0,12,19); (12,19,13,17)];
-           [(4,0,20,11); (3,11,11,11); (12,13,13,9); (15,21,10,7); (2,26,8,10); (10,29,7,7)];
-           [(12,0,8,3); (8,3,9,3); (6,6,10,3); (3,9,11,3); (2,12,12,3); (1,15,11,4); (0,19,12,17);
-            (12,30,14,6); (17,21,9,9); (15,13,11,8)];
-           [(0,0,23,11); (10,8,10,15); (6,23,8,13)];
-           [(1,0,23,4); (0,4,11,6); (15,4,9,6); (0,10,23,12); (0,20,9,11); (13,20,12,5); (15,25,10,6);
-            (1,31,21,4)];
-           [(0,0,12,23); (15,0,11,21); (11,20,14,5); (10,25,13,4); (9,29,11,3); (5,32,10,4)]
-           |] |> Array.map (List.map Rectangle)
+    let digitMasks: BitmapMask [] =
+        [| RectangleMask []
+           BitmapMask.fromPoints [7,1;13,1;13,25;15,27;15,35;9,35;4,34;4,30;7,22;7,13;5,8;5,4]
+           BitmapMask.fromPoints [3,0;20,0;23,4;23,9;22,13;21,15;19,17;18,17;16,19;15,19;13,20;13,24
+                                  12,27;20,27;22,25;23,25;24,26;24,31;23,34;15,34;14,35;2,35;2,30;6,26
+                                  7,24;10,21;10,20;12,18;14,17;13,14;13,6;8,5;5,8;1,8;1,3;3,3]
+           BitmapMask.fromPoints [5,0;19,0;20,2;20,11;22,14;23,19;23,24;22,28;21,30;18,33;16,34;13,35
+                                  1,35;1,29;4,26;7,28;11,29;14,27;14,22;10,19;10,13;13,6;12,4;7,4;5,3]
+           PolygonMask <| Polygon([14,0;21,0;21,5;22,18;22,19;23,29;22,31;21,35;15,35;13,31;10,28;8,27
+                                   3,27;2,28;0,27;0,19;2,17;3,14;5,13;8,7;10,4])
+                                 .Merge(Polygon([11,11;13,12;14,16;12,19;8,19;7,18;7,16;9,15]))
+           PolygonMask <| Polygon([8,0;23,0;23,3;23,4;22,8;20,10;16,10;13,11;13,12;20,13;23,17;24,20
+                                   24,25;23,28;19,26;15,22;13,21;7,21;4,19;4,12;5,10;6,3])
+                                 .Merge(Polygon([6,26;8,26;11,29;15,31;15,35;4,35;3,33;3,26]))
+           BitmapMask.fromPoints [14,0;18,0;17,3;15,6;11,17;11,28;12,29;16,29;17,28;17,22;15,19;15,14
+                                  18,12;21,12;25,15;25,30;20,35;4,35;0,30;0,19;2,12;8,3;11,1]
+           BitmapMask.fromPoints [0,0;22,0;22,7;13,30;10,35;7,35;6,34;6,28;13,12;11,11;0,11]
+           BitmapMask.fromPoints [4,0;9,0;9,5;11,8;15,8;16,7;16,3;15,0;20,0;22,2;23,5;23,10;22,12;22,17
+                                  24,20;24,29;21,34;13,34;13,31;15,28;15,26;12,21;10,21;7,23;7,28;10,31
+                                  10,34;4,34;0,30;0,22;2,18;1,14;1,4]
+           BitmapMask.fromPoints [6,0;11,0;10,9;11,14;11,19;14,19;16,17;17,13;17,10;15,4;15,0;19,0;22,2
+                                  25,7;25,21;23,26;20,29;12,35;5,35;5,31;9,30;10,24;13,21;10,22;4,22
+                                  1,17;0,14;0,8;3,1]
+           |]
 
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: SimpleBitmap) =
         let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
-        let masks = digitMasks.[int <| digitName.Substring(0, 1)]
-        maskBitmap (RectangleMask masks) digitBitmap
+        let mask = digitMasks.[int <| digitName.Substring(0, 1)]
+        maskBitmap mask digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitBitmap)
 
@@ -489,54 +502,15 @@ module Bootstrap =
 
         let myCard0Selected = myHandCardPositions.[0] + cardSelectionOffset
 
-        saveDigitFileFromScreenshot("1_1", myHandCardPositions.[1] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("1_2", myHandCardPositions.[3] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("1_3", playGridCardPositions.[flat 0 0] + topDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("2_1", myCard0Selected + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_2", myHandCardPositions.[2] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_3", opponentHandCardPositions.[1] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("2_4", opponentHandCardPositions.[2] + topDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("3_1", opponentHandCardPositions.[2] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("3_2", opponentHandCardPositions.[4] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("3_3", opponentHandCardPositions.[4] + bottomDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("4_1", myHandCardPositions.[4] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_2", playGridCardPositions.[flat 0 0] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_3", opponentHandCardPositions.[1] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("4_4", opponentHandCardPositions.[3] + bottomDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("5_1", myCard0Selected + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_2", myHandCardPositions.[1] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_3", myHandCardPositions.[4] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_4", opponentHandCardPositions.[3] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("5_5", opponentHandCardPositions.[3] + rightDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("6_1", myHandCardPositions.[2] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_2", playGridCardPositions.[flat 0 0] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_3", opponentHandCardPositions.[1] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_4", opponentHandCardPositions.[2] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_5", opponentHandCardPositions.[3] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("6_6", opponentHandCardPositions.[4] + leftDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("7_1", myHandCardPositions.[3] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_2", myHandCardPositions.[3] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_3", playGridCardPositions.[flat 0 0] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_4", opponentHandCardPositions.[1] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_5", opponentHandCardPositions.[2] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("7_6", opponentHandCardPositions.[4] + rightDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("8_1", myHandCardPositions.[2] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_2", myHandCardPositions.[3] + rightDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_3", myHandCardPositions.[4] + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("8_4", myHandCardPositions.[4] + rightDigitOffset, screenshot)
-
-        saveDigitFileFromScreenshot("9_1", myCard0Selected + topDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_2", myCard0Selected + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_3", myHandCardPositions.[1] + leftDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_4", myHandCardPositions.[1] + bottomDigitOffset, screenshot)
-        saveDigitFileFromScreenshot("9_5", myHandCardPositions.[2] + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("1", myHandCardPositions.[1] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("2", myCard0Selected + bottomDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("3", opponentHandCardPositions.[2] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("4", myHandCardPositions.[4] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("5", myCard0Selected + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("6", myHandCardPositions.[2] + rightDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("7", myHandCardPositions.[3] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("8", myHandCardPositions.[2] + leftDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("9", myCard0Selected + topDigitOffset, screenshot)
 
     let printDiffs() =
         let mutable diffs = []
