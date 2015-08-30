@@ -9,22 +9,18 @@ let private countHandCards (hand: Hand) =
     let firstFullIndex = (hand |> Array.tryFindIndex Option.isSome)
     if firstFullIndex.IsSome then 5 - firstFullIndex.Value else 0
 
-
-
-let getEmptyNeighbors (node: GameState) gi =
-    let mutable neighbors = List.empty
-    if gi>=3 && node.playGrid.slots.[gi-3].isEmpty then neighbors <- (gi-3, 0) :: neighbors
-    if gi<>0 && gi<>3 && gi<>6 && node.playGrid.slots.[gi-1].isEmpty then neighbors <- (gi-1, 1) :: neighbors
-    if gi<>2 && gi<>5 && gi<>8 && node.playGrid.slots.[gi+1].isEmpty then neighbors <- (gi+1, 2) :: neighbors
-    if gi<=5 && node.playGrid.slots.[gi+3].isEmpty then neighbors <- (gi+3, 3) :: neighbors
-    neighbors
+let emptyNeighbors (node: GameState) gi =
+    [gi-3,0; gi-1,1; gi+1,2; gi+3,3]
+        |> List.filter (fun (ngi,_) ->
+            ngi >= 0 && ngi <= 8
+         && ((gi%3 = ngi%3) <> (gi/3 = ngi/3)) // Either row or col changed, not both
+         && node.playGrid.slots.[ngi].isEmpty)
 
 let canCardBeCaptured (node: GameState)
                       (otherPlayerMaxPowers: int array array)
                       (gridIndex: int)
                       (gridSlot: PlayGridSlot) =
-    let emptyNeighbors = getEmptyNeighbors node gridIndex
-    let ret = emptyNeighbors |> List.exists (fun (neighborIndex, powerIndex) ->
+    let ret = emptyNeighbors node gridIndex |> List.exists (fun (neighborIndex, powerIndex) ->
         otherPlayerMaxPowers.[neighborIndex].[3-powerIndex] > gridSlot.card.powers.[powerIndex])
     ret
 
