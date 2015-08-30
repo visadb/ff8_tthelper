@@ -83,6 +83,13 @@ let blurBitmap (bitmap: SimpleBitmap) =
     )
     blurred
 
+let isPixelBetween (bounds: IntPixel*IntPixel) (pixel: IntPixel) =
+    let r, g, b = R pixel, G pixel, B pixel
+    let lb, ub = bounds
+    (r >= R lb) && (r <= R ub)
+ && (g >= G lb) && (g <= G ub)
+ && (b >= B lb) && (b <= B ub)
+
 let pixelDiff (pixel1: IntPixel) (pixel2: IntPixel) =
     abs(R pixel2 - R pixel1) + abs(G pixel2 - G pixel1) + abs(B pixel2 - B pixel1)
 

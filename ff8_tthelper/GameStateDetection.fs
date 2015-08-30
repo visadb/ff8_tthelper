@@ -52,9 +52,6 @@ let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
 let cardChoosingScreenCardSymbolRectangle (i: int) =
     Rectangle(509, 221 + int(58.5*float(i-1)), 6, 11)
 
-let flat row col = row*3 + col
-
-    
 let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
     let r, g, b = R pixel, G pixel, B pixel
     r > minBr && g > minBr && b > minBr
@@ -79,29 +76,32 @@ let private getPlayGridSlotElementBitmap screenshot (cardTopLeft: Point) =
     subBitmap screenshot rect
 
 let private playGridSlotElementMasks = [
-        PolygonMask <| Polygon([0,56; 25,56; 25,58; 27,58; 27,63; 0,63])
-        PolygonMask <| Polygon([0,36; 25,36; 25,38; 28,38; 28,52; 25,52; 25,54; 24,54; 24,56; 22,56;
-                                22,59; 21,59; 21,61; 18,61; 18,63; 0,63])
-        PolygonMask <| Polygon([0,15; 27,15; 28,16; 28,30; 25,34; 25,35; 20,40; 19,40; 19,43; 3,43;
-                                3,45; 6,48; 6,63; 0,63])
+        BitmapMask.fromPoints [0,56;25,56;25,58;27,58;27,63;0,63]
+        BitmapMask.fromPoints [0,36;25,36;25,38;28,38;28,52;25,52;25,54;24,54;24,56;22,56;22,59
+                               21,59;21,61;18,61;18,63;0,63]
+        BitmapMask.fromPoints [0,15;27,15;28,16;28,30;25,34;25,35;20,40;19,40;19,43;3,43;3,45
+                               6,48;6,63;0,63]
     ]
 let private getEmptyElementlessPlayGridSlotBitmaps doMask =
-    array2D [ for row in [0..2] do
-                yield [ for col in [0..2] do
-                        let b = SimpleBitmap.fromFile(imageDir + "play_grid_slot_element_empty_"+row.ToString()+"_"+col.ToString()+".png")
-                        if doMask then
-                            maskBitmapReverse playGridSlotElementMasks.[row] b
-                        yield b]]
+    array2D [ for row in [0..2] ->
+                [ for col in [0..2] do
+                  let f = sprintf "%splay_grid_slot_element_empty_%d_%d.png" imageDir row col
+                  let b = SimpleBitmap.fromFile(f)
+                  if doMask then
+                      maskBitmapReverse playGridSlotElementMasks.[row] b
+                  yield b]]
 
-let private emptyElementlessPlayGridSlotBitmaps = getEmptyElementlessPlayGridSlotBitmaps true
-let private emptyElementlessPlayGridSlotBitmapsWithoutMasks = getEmptyElementlessPlayGridSlotBitmaps false
+let private emptyElementlessPlayGridSlotBitmaps =
+    getEmptyElementlessPlayGridSlotBitmaps true
+let private emptyElementlessPlayGridSlotBitmapsWithoutMasks =
+    getEmptyElementlessPlayGridSlotBitmaps false
 
-let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot row col: SimpleBitmap option =
+let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot row col =
     // Get element pixels only by undoing compositing:
     // C_o = C_a*alpha_a + C_b*alpha_b*(1-alpha_a)
     // ==> C_a = (C_o - C_b*(1-alpha_a))/alpha_a
     // alpha_b = 1.0, C_o = actual screenshot color, C_b = empty screenshot color
-    let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[flat row col]
+    let actual = getPlayGridSlotElementBitmap screenshot playGridCardPositions.[row*3 + col]
     let elementless = if doMask then emptyElementlessPlayGridSlotBitmaps.[row,col]
                                 else emptyElementlessPlayGridSlotBitmapsWithoutMasks.[row,col]
 
@@ -110,20 +110,24 @@ let private getPlayGridSlotElementOnlyBitmapImpl doMask emptyColor screenshot ro
     else
         let backgroundless = SimpleBitmap.createEmpty elementSize.Width elementSize.Height
         let alpha_a = 0.64;
-        let decomposite o b = max 0 <| (int)o - (int)((float)b*(1.0-alpha_a)/alpha_a)
+        let decomp chan o b = max 0 <| (int)(chan o) - (int)((float)(chan b)*(1.0-alpha_a)/alpha_a)
         seq { for y in 0 .. elementSize.Height-1 do
-                for x in 0 .. elementSize.Width-1 -> (x, y, actual.GetPixel(x, y), elementless.GetPixel(x,y)) }
+                for x in 0 .. elementSize.Width-1 ->
+                    (x, y, actual.GetPixel(x,y), elementless.GetPixel(x,y)) }
             |> Seq.iter (fun (x, y, c_o, c_b) ->
                 if A c_b = 0 || (pixelDiff c_o c_b <= 15) then
                     backgroundless.SetPixel(x, y, emptyColor)
                 else
-                    let elementColor = ARGB(0xff, decomposite (R c_o) (R c_b), decomposite (G c_o) (G c_b), decomposite (B c_o) (B c_b))
+                    let elementColor = ARGB(0xff, decomp R c_o c_b, decomp G c_o c_b, decomp B c_o c_b)
                     backgroundless.SetPixel(x, y, elementColor))
         Some backgroundless
 
-let private getPlayGridSlotElementOnlyBitmap = getPlayGridSlotElementOnlyBitmapImpl true 0
-let private getPlayGridSlotElementOnlyBitmapWithoutTransparency = getPlayGridSlotElementOnlyBitmapImpl true 0xff000000
-let private getPlayGridSlotElementOnlyBitmapWithoutMask = getPlayGridSlotElementOnlyBitmapImpl false 0
+let private getPlayGridSlotElementOnlyBitmap =
+    getPlayGridSlotElementOnlyBitmapImpl true 0
+let private getPlayGridSlotElementOnlyBitmapWithoutTransparency =
+    getPlayGridSlotElementOnlyBitmapImpl true 0xff000000
+let private getPlayGridSlotElementOnlyBitmapWithoutMask =
+    getPlayGridSlotElementOnlyBitmapImpl false 0
 
 let private modelCursor = SimpleBitmap.fromFile(imageDir + "cursor.png")
 
@@ -136,17 +140,8 @@ let private readCardOwner (screenshot: SimpleBitmap) (cardPos: Point) =
     let meColorBounds = ARGB(255, 178, 209, 242), ARGB(255, 188, 219, 255)
     let opColorBounds = ARGB(255, 241, 176, 208), ARGB(255, 253, 187, 220)
 
-    let isPixelBetween (bounds: IntPixel*IntPixel) (pixel: IntPixel) =
-        let isBetween =
-                let r, g, b = R pixel, G pixel, B pixel
-                let lBound, uBound = bounds
-                (r >= R lBound) && (r <= R uBound)
-             && (g >= G lBound) && (g <= G uBound)
-             && (b >= B lBound) && (b <= B uBound)
-        if isBetween then 1 else 0
-
-    let isMyPixel = isPixelBetween meColorBounds
-    let isOpPixel = isPixelBetween opColorBounds
+    let isMyPixel = isPixelBetween meColorBounds >> System.Convert.ToInt32
+    let isOpPixel = isPixelBetween opColorBounds >> System.Convert.ToInt32
 
     let incrementCoords (x,y) =
         if testArea.Contains(x, y+1) then (x, y+1)
@@ -171,12 +166,9 @@ let modelPowerModifierPlus =  SimpleBitmap.fromFile(imageDir + "power_modifier_p
 let private readPowerModifier screenshot (cardTopLeft: Point) =
     let actual = getPowerModifierBitmap screenshot cardTopLeft
 
-    let minusDiff = bitmapDiff actual modelPowerModifierMinus
-    let plusDiff = lazy bitmapDiff actual modelPowerModifierPlus
-
-    if minusDiff < 0.12 then -1
-    else if plusDiff.Force() < 0.12 then +1
-         else 0
+    if bitmapDiff actual modelPowerModifierMinus < 0.12 then -1
+    elif bitmapDiff actual modelPowerModifierPlus < 0.12 then +1
+    else 0
 
 let private modelCardElements: (Element*SimpleBitmap) list =
     Element.All
@@ -197,7 +189,7 @@ let private readCardElement screenshot (cardTopLeft: Point): Element option =
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
 let modelDigits: SimpleBitmap list =
-    [ for i in 1..9 -> SimpleBitmap.fromFile(imageDir + "digit" + i.ToString() + ".png") ]
+    [ for i in 1..9 -> SimpleBitmap.fromFile(sprintf "%sdigit%d.png" imageDir i) ]
 
 let private readDigitValue (digitBitmap: SimpleBitmap): int option =
     let candidatesWithDiffs =
@@ -451,12 +443,12 @@ module Bootstrap =
         let screenshotWithMinus = SimpleBitmap.fromFile(screenshotDir + @"in-game\elemental_-1_in_0_0.jpg")
 
         let plusBitmap =
-            getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[flat 0 0] |> blurBitmap
+            getPowerModifierBitmap screenshotWithPlus playGridCardPositions.[0*3 + 0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(1,2,42,11); Rectangle(14,0,15,20)]) plusBitmap
         plusBitmap.Save(imageDir + "power_modifier_plus.png")
 
         let minusBitmap =
-            getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[flat 0 0] |> blurBitmap
+            getPowerModifierBitmap screenshotWithMinus playGridCardPositions.[0*3 + 0] |> blurBitmap
         maskBitmap (RectangleMask [Rectangle(5,2,39,16)]) minusBitmap
         minusBitmap.Save(imageDir + "power_modifier_minus.png")
 
@@ -517,7 +509,7 @@ module Bootstrap =
                         |> PolygonMask }
             { element = Ice
               sourceBitmap = example4
-              cardTopLeft = playGridCardPositions.[flat 1 0]
+              cardTopLeft = playGridCardPositions.[1*3 + 0]
               mask = Polygon([37,56; 37,61; 33,57; 26,57; 23,61; 23,56; 26,54; 26,46; 19,37; 12,37; 10,42;
                                8,42;  8,40; 11,36; 11,28;  7,24;  8,22; 10,22; 12,27; 18,27; 25,19; 25,11;
                               23, 9; 23, 4; 26, 7; 34, 7; 37, 3; 37, 9; 34,11; 34,19; 41,28; 46,28; 49,22;
@@ -534,10 +526,10 @@ module Bootstrap =
         [ for row in [0..2] do
             for col in [0..2] do if (row,col) <> (0,0) then yield (row,col) ]
                 |> List.iter (fun (row, col) ->
-                    let bmap = getPlayGridSlotElementBitmap ss1 playGridCardPositions.[flat row col]
+                    let bmap = getPlayGridSlotElementBitmap ss1 playGridCardPositions.[row*3 + col]
                     bmap.Save(sprintf "%splay_grid_slot_element_empty_%d_%d.png" imageDir row col))
 
-        let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[flat 0 0]
+        let b0_0 = getPlayGridSlotElementBitmap ss2 playGridCardPositions.[0*3 + 0]
         b0_0.Save(imageDir + "play_grid_slot_element_empty_0_0.png")
 
     let saveEmptyPlayGridSlotElementBitmaps() =

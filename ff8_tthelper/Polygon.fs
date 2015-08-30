@@ -104,7 +104,7 @@ type Polygon(segments: Segment seq) =
             s1.B = s2.A && not (dySignIsOpposite s1 s2)
 
         connectedComponents |> Seq.collect (fun connectedComponent ->
-            Seq.append connectedComponent [Seq.head connectedComponent; Seq.nth 1 connectedComponent]
+            Seq.append connectedComponent [Seq.head connectedComponent; Seq.item 1 connectedComponent]
                 |> Seq.windowed 3
                 |> Seq.map (fun segmentTriplet ->
                     let s1,s2,s3 = match segmentTriplet with
