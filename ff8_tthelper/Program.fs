@@ -7,19 +7,25 @@ open GameStateDetectionTest
 open System.Drawing
 open System.Threading
 
-let steamScreenshotDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
+
+//let screenCaptureDir = @"C:\tmp\fraps_screenshots"
+//let screenshotFilePattern = "*.jpg"
+//let screenshotHotKey = "F11"
+let screenCaptureDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
+let screenshotFilePattern = "????-??-??_?????.jpg"
+let screenshotHotKey = "F12"
 
 let bootstrap () =
     //Bootstrap.savePowerModifiersFromExampleScreenshots()
     //Bootstrap.saveCursorFromExampleScreenshot()
-    //Bootstrap.saveDigitFilesFromExampleScreenshot()
-    //Bootstrap.printDiffs()
+    Bootstrap.saveDigitFilesFromExampleScreenshot()
+    Bootstrap.printDiffs()
     //Bootstrap.saveElementSymbolsFromExampleScreenshots()
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
     //Bootstrap.saveResultDetectionBitmaps()
     //Bootstrap.saveSpoilsSelectionNumberBitmaps()
-    Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
+    //Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
     ()
 
 let printState state =
@@ -59,6 +65,12 @@ let sendKey key =
 let sendAndSleep (key: string) (ms: int) =
     sendKey key
     Thread.Sleep ms
+
+let clearScript = System.IO.Directory.GetCurrentDirectory() + @"\..\..\clearScreenshots.ahk"
+let clearSteamScreenshots() = 
+    let proc = System.Diagnostics.Process.Start(ahkProg, clearScript)
+    proc.WaitForExit()
+
 let playOneTurn state =
     let sw = System.Diagnostics.Stopwatch()
     let selectHandCard offset = 
@@ -94,45 +106,50 @@ let playOneTurn state =
     let rowOffset, colOffset = targetGridIndex/3 - 1, targetGridIndex%3 - 1
     selectTargetSlot rowOffset colOffset
 
-let waitForUserToPressF12() =
-    let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
-    printfn "Press F12 inside game"
+let waitForScreenshot() =
+    let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
+    watcher.InternalBufferSize <- 1000000
     let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
-    printfn "pressed"
     watcher.Dispose()
+    screenCaptureDir + @"\" + changedResult.Name
 
-let watchScreenshotDir () =
+let waitForUserToPressScreenshotHotkey() =
+    printfn "Press %s inside game" screenshotHotKey
+    waitForScreenshot() |> ignore
+    printfn "pressed"
+
+let playOneTurnAtATime() =
     while true do
-        let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
+        let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
         printfn "\nWaiting for new screenshot..."
         let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
         watcher.Dispose()
-        printfn "#######################################"
-        printfn "#### DETECTED %s" changedResult.Name
-        printfn "#######################################"
-        let state = readGameStateFromScreenshot(steamScreenshotDir + @"\" + changedResult.Name)
+        printfn "# DETECTED %s" changedResult.Name
+        let state = readGameStateFromScreenshot(screenCaptureDir + @"\" + changedResult.Name)
         if state.turnPhase = OpponentsTurn then
             printfn "Not my turn..."
         else
             printfn "My turn, playing!"
             playOneTurn state
 
-let takeScreenshot(): SimpleBitmap =
-    let watcher = new System.IO.FileSystemWatcher(steamScreenshotDir, "????-??-??_?????.jpg")
-    sendKey "F12"
-    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
-    Thread.Sleep 100
-    let filename = steamScreenshotDir + @"\" + changedResult.Name
-    try
-        let ss = SimpleBitmap.fromFile(filename)
-        System.IO.File.Delete(filename)
-        ss
-    with
-        | _ -> // retry
-            Thread.Sleep 100
+let rec takeScreenshot(): SimpleBitmap =
+    let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
+    sendKey screenshotHotKey
+    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created, 10000)
+    if changedResult.TimedOut then
+        printfn "Timed out while waiting for screenshot, retrying..."
+        takeScreenshot() // retry indefinitely
+    else
+        Thread.Sleep 100
+        let filename = screenCaptureDir + @"\" + changedResult.Name
+        try
             let ss = SimpleBitmap.fromFile(filename)
-            System.IO.File.Delete(filename)
             ss
+        with
+            | _ -> // retry once
+                Thread.Sleep 100
+                let ss = SimpleBitmap.fromFile(filename)
+                ss
 
 let chooseCards() = 
     printfn "Choosing cards"
@@ -180,7 +197,7 @@ let rec playMatch() =
         let mutable state = readGameState lastScreenshot
         while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
             printfn "Waiting for my turn..."
-            Thread.Sleep 1000
+            Thread.Sleep 2500
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
@@ -214,17 +231,14 @@ let chooseSpoils() =
         Thread.Sleep 10000
 
 let autoPlay() =
-    waitForUserToPressF12()
+    waitForUserToPressScreenshotHotkey()
     // assert/assume that outside
-    while true do
+    for i in 1 .. 2000000000 do
         startGame()
         playMatch()
         chooseSpoils()
-
-let playOneTurnAtATime() =
-    while true do
-        waitForUserToPressF12()
-        playOneTurn (readGameState (takeScreenshot()))
+        if i % 10 = 0 then
+            clearSteamScreenshots()
 
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
@@ -235,7 +249,7 @@ let playTestState() =
             myHand = [|None; None; None; None             ; hc [1;2;1;1] Me n|]
             opHand = [|None; None; None; hc [1;1;1;1] Op n; hc [1;1;2;1] Op n|]
             playGrid = PlayGrid([| pc [1;1;1;1] Me 0; pc [1;1;1;1] Op 0; pc [1;1;1;1] Me 0
-                                    pc [1;1;2;1] Op 0; emptySlot        ; pc [1;2;1;1] Me 0
+                                   pc [1;1;2;1] Op 0; emptySlot        ; pc [1;2;1;1] Me 0
                                    pc [1;1;1;1] Op 0; emptySlot        ; pc [1;1;1;1] Me 0 |])
     }
     playGame state
@@ -249,8 +263,18 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //playScreenshot <| steamScreenshotDir + @"\2015-08-16_00001.jpg"
+    //playScreenshot <| screenshotDir + @"in-game\card_selection_cursor_1.jpg"
+    //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
     //playTestState()
+        
+    //let ss = SimpleBitmap.fromFile <| screenshotDir + @"in-game\misread_card_2.jpg"
+    //let card = readCard ss None None None <| Point(616+240, 93+308)
+    //printfn "Card: %A" card
+
+    //while true do
+    //    waitForUserToPressScreenshotHotkey()
+    //    clearSteamScreenshots()
+    //    Thread.Sleep 500
 
     autoPlay()
     //playOneTurnAtATime()
