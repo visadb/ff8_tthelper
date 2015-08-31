@@ -194,14 +194,15 @@ let modelDigits: SimpleBitmap list =
 let private readDigitValue (digitBitmap: SimpleBitmap): int option =
     let candidatesWithDiffs =
         modelDigits |> List.mapi (fun i modelDigit -> (i+1, bitmapDiff digitBitmap modelDigit))
-                    |> List.filter (snd >> ((>) 0.16))
-
-    if List.isEmpty candidatesWithDiffs then
+                    //|> List.map (fun (i,diff) -> printfn "Power %d = %f" i diff; (i,diff))
+                    
+    if List.isEmpty <| (candidatesWithDiffs |> List.filter (snd >> ((>) 0.17))) then
+        //digitBitmap.Save(imageDir + "failed_" + ((List.minBy snd candidatesWithDiffs |> fst).ToString()) + ".png")
         None
     else
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let private readCard screenshot
+let readCard screenshot
                      (owner: Player option)
                      (powerModifier: int option)
                      (element: Element option)
@@ -357,8 +358,8 @@ module Bootstrap =
         [| RectangleMask []
            BitmapMask.fromPoints [7,1;13,1;13,25;15,27;15,35;9,35;4,34;4,30;7,22;7,13;5,8;5,4]
            BitmapMask.fromPoints [3,0;20,0;23,4;23,9;22,13;21,15;19,17;18,17;16,19;15,19;13,20;13,24
-                                  12,27;20,27;22,25;23,25;24,26;24,31;23,34;15,34;14,35;2,35;2,30;6,26
-                                  7,24;10,21;10,20;12,18;14,17;13,14;13,6;8,5;5,8;1,8;1,3;3,3]
+                                  12,27;20,27;22,25;25,26;25,31;25,35;0,35;0,30;5,25
+                                  6,23;9,22;9,20;11,17;13,16;12,13;12,7;8,5;5,8;0,8;0,3;0,0]
            BitmapMask.fromPoints [5,0;19,0;20,2;20,11;22,14;23,19;23,24;22,28;21,30;18,33;16,34;13,35
                                   1,35;1,29;4,26;7,28;11,29;14,27;14,22;10,19;10,13;13,6;12,4;7,4;5,3]
            PolygonMask <| Polygon([14,0;21,0;21,5;22,18;22,19;23,29;22,31;21,35;15,35;13,31;10,28;8,27
