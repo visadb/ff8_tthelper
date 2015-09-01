@@ -9,7 +9,7 @@ Sleep, 300
 MouseClick, Left, 1058, 641 ; delete
 Sleep, 100
 MouseClick, Left, 1114, 685 ; confirm delete
-Sleep, 2000
+Sleep, 5000
 MouseClick, Left, 1244, 351 ; close screenshot dialog
 Send, +{TAB down}
 Sleep, 50

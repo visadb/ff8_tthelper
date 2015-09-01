@@ -3,10 +3,21 @@
 open DomainTypes
 open BitmapHelpers
 open GameStateDetectionTest
+open System
+open Printf
 
 open System.Drawing
 open System.Threading
 
+let logFile = @"C:\tmp\ff8helper_log.txt"
+let logStream = new IO.StreamWriter(logFile, true)
+
+let log msg =
+    let toWrite = (DateTime.Now.ToString()) + ": " + msg
+    logStream.WriteLine(toWrite)
+    logStream.Flush()
+    Console.WriteLine(toWrite)
+    
 
 //let screenCaptureDir = @"C:\tmp\fraps_screenshots"
 //let screenshotFilePattern = "*.jpg"
@@ -29,16 +40,16 @@ let bootstrap () =
     ()
 
 let printState state =
-    printfn "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state) (AI.cardBalance state)
+    ksprintf log "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state) (AI.cardBalance state)
 
 let playGame initState =
     let mutable state = initState
-    let sw = new System.Diagnostics.Stopwatch()
+    let sw = new Diagnostics.Stopwatch()
     while not (AI.isTerminalNode state) do
         printState state
         sw.Restart()
         let (move, value) = AI.getBestMove state 9
-        printfn "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
+        ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
                                                                         (snd move / 3) (snd move % 3)
                                                                         value
                                                                         sw.ElapsedMilliseconds
@@ -47,40 +58,39 @@ let playGame initState =
     printState state
 
 let readGameStateFromScreenshot (screenshotPath: string) =
-    let sw = new System.Diagnostics.Stopwatch()
+    let sw = new Diagnostics.Stopwatch()
+    ksprintf log "Reading GameState from %s" screenshotPath
     sw.Restart()
-    printfn "Reading %s" screenshotPath
     let screenshot = SimpleBitmap.fromFile(screenshotPath)
-    printfn "Bitmap of size %dx%d read in %d ms" screenshot.Width screenshot.Height sw.ElapsedMilliseconds
-    sw.Restart()
     let state = readGameState screenshot
-    printfn "GameState read in %d ms" sw.ElapsedMilliseconds
+    ksprintf log "GameState read in %d ms" sw.ElapsedMilliseconds
     state
 
 let ahkProg = @"C:\Program Files\AutoHotkey\AutoHotkey.exe"
-let sendScript = System.IO.Directory.GetCurrentDirectory() + @"\..\..\send.ahk"
+let sendScript = IO.Directory.GetCurrentDirectory() + @"\..\..\send.ahk"
 let sendKey key =
-    let proc = System.Diagnostics.Process.Start(ahkProg, sendScript+" "+key)
+    let proc = Diagnostics.Process.Start(ahkProg, sendScript+" "+key)
     proc.WaitForExit()
 let sendAndSleep (key: string) (ms: int) =
     sendKey key
     Thread.Sleep ms
 
-let clearScript = System.IO.Directory.GetCurrentDirectory() + @"\..\..\clearScreenshots.ahk"
+let clearScript = IO.Directory.GetCurrentDirectory() + @"\..\..\clearScreenshots.ahk"
 let clearSteamScreenshots() = 
-    let proc = System.Diagnostics.Process.Start(ahkProg, clearScript)
+    ksprintf log "Clearing Steam screenshots"
+    let proc = Diagnostics.Process.Start(ahkProg, clearScript)
     proc.WaitForExit()
 
 let playOneTurn state =
-    let sw = System.Diagnostics.Stopwatch()
+    let sw = Diagnostics.Stopwatch()
     let selectHandCard offset = 
-        printfn "Selecting hand card: %d" offset
+        ksprintf log "Selecting hand card: %d" offset
         let key = if offset < 0 then "Up" else "Down"
         for i in 1 .. abs offset do
             sendAndSleep key 20
         sendAndSleep "x" 20
     let selectTargetSlot rowOffset colOffset =
-        printfn "Selecting target slot: (%d, %d)" rowOffset colOffset
+        ksprintf log "Selecting target slot: (%d, %d)" rowOffset colOffset
         if rowOffset = -1 then sendAndSleep "Up" 20
         elif rowOffset = 1 then sendAndSleep "Down" 20
         if colOffset = -1 then sendAndSleep "Left" 20
@@ -91,7 +101,7 @@ let playOneTurn state =
     let (srcHandIndex, targetGridIndex), value = AI.getBestMove state 9
     let took = sw.ElapsedMilliseconds
     printState state
-    printfn "Best move is %d -> (%d,%d) with value %d (took %d ms)" (srcHandIndex) (targetGridIndex/3)
+    ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (srcHandIndex) (targetGridIndex/3)
                                                                     (targetGridIndex%3) value took
     printState <| AI.executeMove state (srcHandIndex, targetGridIndex)
     match state.turnPhase with
@@ -107,61 +117,63 @@ let playOneTurn state =
     selectTargetSlot rowOffset colOffset
 
 let waitForScreenshot() =
-    let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
-    watcher.InternalBufferSize <- 1000000
-    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
-    watcher.Dispose()
-    screenCaptureDir + @"\" + changedResult.Name
+    let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
+    try
+        watcher.InternalBufferSize <- 1000000
+        let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created)
+        screenCaptureDir + @"\" + changedResult.Name
+    finally
+        watcher.Dispose()
 
 let waitForUserToPressScreenshotHotkey() =
-    printfn "Press %s inside game" screenshotHotKey
+    ksprintf log "Press %s inside game" screenshotHotKey
     waitForScreenshot() |> ignore
-    printfn "pressed"
+    ksprintf log "pressed"
 
 let playOneTurnAtATime() =
     while true do
-        let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
-        printfn "\nWaiting for new screenshot..."
-        let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created)
-        watcher.Dispose()
-        printfn "# DETECTED %s" changedResult.Name
-        let state = readGameStateFromScreenshot(screenCaptureDir + @"\" + changedResult.Name)
+        let screenshotFilename = waitForScreenshot()
+        let state = readGameStateFromScreenshot screenshotFilename
         if state.turnPhase = OpponentsTurn then
-            printfn "Not my turn..."
+            ksprintf log "Not my turn..."
         else
-            printfn "My turn, playing!"
+            ksprintf log "My turn, playing!"
             playOneTurn state
 
 let rec takeScreenshot(): SimpleBitmap =
-    let watcher = new System.IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
-    sendKey screenshotHotKey
-    let changedResult = watcher.WaitForChanged(System.IO.WatcherChangeTypes.Created, 10000)
-    if changedResult.TimedOut then
-        printfn "Timed out while waiting for screenshot, retrying..."
-        takeScreenshot() // retry indefinitely
-    else
-        Thread.Sleep 100
-        let filename = screenCaptureDir + @"\" + changedResult.Name
-        try
-            let ss = SimpleBitmap.fromFile(filename)
-            ss
-        with
-            | _ -> // retry once
-                Thread.Sleep 100
+    let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
+    try
+        watcher.InternalBufferSize <- 1000000
+        sendKey screenshotHotKey
+        let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 10000)
+        if changedResult.TimedOut then
+            ksprintf log "Timed out while waiting for screenshot, retrying..."
+            takeScreenshot() // retry indefinitely
+        else
+            Thread.Sleep 100
+            let filename = screenCaptureDir + @"\" + changedResult.Name
+            try
                 let ss = SimpleBitmap.fromFile(filename)
                 ss
+            with
+                | _ -> // retry once
+                    Thread.Sleep 100
+                    let ss = SimpleBitmap.fromFile(filename)
+                    ss
+    finally
+        watcher.Dispose()
 
 let chooseCards() = 
-    printfn "Choosing cards"
+    ksprintf log "Choosing cards"
 
     sendAndSleep "Left" 150
     sendAndSleep "Up" 20
 
     // put cursor on last card on page
-    let sw = System.Diagnostics.Stopwatch()
+    let sw = Diagnostics.Stopwatch()
     sw.Restart()
     let numCardsOnPage = readNumberOfCardsOnCardChoosingScreen (takeScreenshot())
-    printfn "Detected %d cards on page (took %d ms)" numCardsOnPage <| sw.ElapsedMilliseconds
+    ksprintf log "Detected %d cards on page (took %d ms)" numCardsOnPage <| sw.ElapsedMilliseconds
     for i in 1 .. (11-numCardsOnPage) do
         sendAndSleep "Up" 20
 
@@ -179,12 +191,12 @@ let chooseCards() =
             if i <> (5-numCardsOnPage) then
                 sendAndSleep "Up" 20
 
-    Thread.Sleep 500
+    Thread.Sleep 1000
     sendAndSleep "x" 1800
-    printfn "Cards chosen!"
+    ksprintf log "Cards chosen!"
 
-let startGame() =
-    printfn "Starting game"
+let startGame i =
+    ksprintf log "Starting game %d" i
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
     sendAndSleep "x" 2000 // Talking
@@ -196,17 +208,17 @@ let rec playMatch() =
     while readGamePhase lastScreenshot = Ongoing do
         let mutable state = readGameState lastScreenshot
         while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
-            printfn "Waiting for my turn..."
+            ksprintf log "Waiting for my turn..."
             Thread.Sleep 2500
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
-            printfn "My turn now, playing!"
+            ksprintf log "My turn now, playing!"
             playOneTurn state
             Thread.Sleep 2800
             lastScreenshot <- takeScreenshot()
     let result = readGamePhase lastScreenshot
-    printfn "Game ended, result: %A" result
+    ksprintf log "Game ended, result: %A" result
     Thread.Sleep 500
     sendAndSleep "x" 2000 // Dismiss Won/Draw/Lost screen
     if result = Draw then
@@ -215,10 +227,10 @@ let rec playMatch() =
 let chooseSpoils() =
     let spoilsSelectionNumber = readSpoilsSelectionNumber (takeScreenshot())
     if spoilsSelectionNumber.IsSome then
-        printfn "Choosing %d cards for spoils" spoilsSelectionNumber.Value
+        ksprintf log "Choosing %d cards for spoils" spoilsSelectionNumber.Value
         if spoilsSelectionNumber.Value = 1 then
             // Randomize chosen card
-            for i in 1 .. System.Random().Next() % 5 do
+            for i in 1 .. Random().Next() % 5 do
                 sendAndSleep "Right" 80
         for i in 1 .. spoilsSelectionNumber.Value do
             sendAndSleep "x" 400
@@ -227,14 +239,14 @@ let chooseSpoils() =
         for i in 1 .. spoilsSelectionNumber.Value do
             sendAndSleep "x" 1300
     else
-        printfn "Nothing to do, waiting for game to end..."
+        ksprintf log "Nothing to do, waiting for game to end..."
         Thread.Sleep 10000
 
 let autoPlay() =
     waitForUserToPressScreenshotHotkey()
     // assert/assume that outside
-    for i in 1 .. 2000000000 do
-        startGame()
+    for i in 0 .. 2000000000 do
+        startGame i
         playMatch()
         chooseSpoils()
         if i % 10 = 0 then
@@ -254,9 +266,28 @@ let playTestState() =
     }
     playGame state
 
+// TODO: DEBUG
+// My turn now, playing!
+// 
+//        m1764  | o6631- | m7113
+//        -------+--------+-------
+//        m9952  | o7365  | m5919
+//        -------+--------+------- @9239
+// 5637          |        | m9862-  7872
+// -------------------------------------- v=55 b=4
+//
+// Best move is 4 -> (2,0) with value 4 (took 0 ms)
+//
+//        m1764  | o6631- | m7113
+//        -------+--------+-------
+//        m9952  | o7365  | m5919
+//        -------+--------+-------
+// 5637   m7872  |        | m9862-  9239
+// -------------------------------------- v=70 b=4
+
 [<EntryPoint>]
 let main argv = 
-    let sw = new System.Diagnostics.Stopwatch()
+    let sw = new Diagnostics.Stopwatch()
     sw.Start()
 
     //bootstrap()
@@ -276,10 +307,10 @@ let main argv =
     //    clearSteamScreenshots()
     //    Thread.Sleep 500
 
-    autoPlay()
-    //playOneTurnAtATime()
+    //autoPlay()
+    playOneTurnAtATime()
 
     sw.Stop()
-    printfn "Time elapsed: %d ms" sw.ElapsedMilliseconds
+    ksprintf log "Time elapsed: %d ms" sw.ElapsedMilliseconds
 
     0
