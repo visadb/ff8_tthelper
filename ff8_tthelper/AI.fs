@@ -108,7 +108,8 @@ let inline executeMovePrealloc newPlayGrid newHand (node: GameState) (handIndex,
     updatePlayGrid newPlayGrid node.playGrid playGridIndex sourceHand.[handIndex].Value
     { turnPhase = newTurnPhase; myHand = newMyHand; opHand = newOpHand; playGrid = newPlayGrid}
 
-let executeMove = executeMovePrealloc (PlayGrid(Array.create 9 (Empty None))) (Array.create 5 None)
+let executeMove node move =
+    executeMovePrealloc (PlayGrid(Array.create 9 (Empty None))) (Array.create 5 None) node move
 
 let preallocPlayGrids = [| for i in 1 .. 5*9*9 -> PlayGrid(Array.create 9 (Empty None)) |]
 let preallocHands: Hand[] = [| for i in 1 .. 5*9*9 -> Array.create 5 None |]
