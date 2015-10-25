@@ -189,7 +189,7 @@ let private readCardElement screenshot (cardTopLeft: Point): Element option =
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
 let modelDigits: SimpleBitmap list =
-    [ for i in 1..9 -> SimpleBitmap.fromFile(sprintf "%sdigit%d.png" imageDir i) ]
+    [ for i in 1..10 -> SimpleBitmap.fromFile(sprintf "%sdigit%s.png" imageDir (powerToDigitName i)) ]
 
 let private readDigitValue (digitBitmap: SimpleBitmap): int option =
     let candidatesWithDiffs =
@@ -377,17 +377,20 @@ module Bootstrap =
            BitmapMask.fromPoints [6,0;11,0;10,9;11,14;11,19;14,19;16,17;17,13;17,10;15,4;15,0;19,0;22,2
                                   25,7;25,21;23,26;20,29;12,35;5,35;5,31;9,30;10,24;13,21;10,22;4,22
                                   1,17;0,14;0,8;3,1]
+           PolygonMask <| Polygon([0,2;2,0;21,0;24,5;24,34;21,35;14,35;14,28;12,25;10,28;9,35;0,35])
+                                 .Merge(Polygon([11,4;14,8;14,15;12,18;11,18;10,17;10,7]))
            |]
 
     let saveDigitFileFromScreenshot(digitName: string, point: Point, screenshot: SimpleBitmap) =
         let digitBitmap = getDigitBitmap screenshot point |> blurBitmap
-        let mask = digitMasks.[int <| digitName.Substring(0, 1)]
+        let mask = digitMasks.[digitNameToPower digitName]
         maskBitmap mask digitBitmap
         digitBitmap.Save(imageDir + "digit"+digitName+".png", Imaging.ImageFormat.Png)
         digitBitmapsFromScreenshot <- digitBitmapsFromScreenshot.Add(digitName, digitBitmap)
 
     let saveDigitFilesFromExampleScreenshot() =
         let screenshot = SimpleBitmap.fromFile(screenshotDir + @"in-game\example_screenshot_1.jpg")
+        let screenshot2 = SimpleBitmap.fromFile(screenshotDir + @"in-game\card_with_power_a.jpg")
 
         let myCard0Selected = myHandCardPositions.[0] + cardSelectionOffset
 
@@ -400,14 +403,15 @@ module Bootstrap =
         saveDigitFileFromScreenshot("7", myHandCardPositions.[3] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("8", myHandCardPositions.[2] + leftDigitOffset, screenshot)
         saveDigitFileFromScreenshot("9", myCard0Selected + topDigitOffset, screenshot)
+        saveDigitFileFromScreenshot("A", myCard0Selected + bottomDigitOffset, screenshot2)
 
     let printDiffs() =
         let mutable diffs = []
 
         let digitNames = digitBitmapsFromScreenshot |> Map.toList |> List.map fst
-        for modelDigit in 1 .. 9 do
+        for modelDigit in 1 .. 10 do
             for screenshotDigitName in digitNames do
-                let modelDigitName = modelDigit.ToString()
+                let modelDigitName = powerToDigitName modelDigit
                 let modelBitmap = SimpleBitmap.fromFile(imageDir + "digit"+modelDigitName+".png")
                 let diff = bitmapDiff modelBitmap (digitBitmapsFromScreenshot.Item screenshotDigitName)
                 diffs <- (diff, modelDigitName, screenshotDigitName) :: diffs

@@ -40,22 +40,7 @@ let bootstrap () =
     ()
 
 let printState state =
-    ksprintf log "%O-------------------------------------- v=%d b=%d\n" state (AI.evaluateNode state) (AI.cardBalance state)
-
-let playGame initState =
-    let mutable state = initState
-    let sw = new Diagnostics.Stopwatch()
-    while not (AI.isTerminalNode state) do
-        printState state
-        sw.Restart()
-        let (move, value) = AI.getBestMove state 9
-        ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
-                                                                        (snd move / 3) (snd move % 3)
-                                                                        value
-                                                                        sw.ElapsedMilliseconds
-        state <- AI.executeMove state move
-
-    printState state
+    ksprintf log "%O-------------------------------------- v=%d b=%d\r\n" state (AI.evaluateNode state) (AI.cardBalance state)
 
 let readGameStateFromScreenshot (screenshotPath: string) =
     let sw = new Diagnostics.Stopwatch()
@@ -126,12 +111,13 @@ let waitForScreenshot() =
         watcher.Dispose()
 
 let waitForUserToPressScreenshotHotkey() =
-    ksprintf log "Press %s inside game" screenshotHotKey
+    ksprintf log "\r\n--------Press %s inside game" screenshotHotKey
     waitForScreenshot() |> ignore
     ksprintf log "pressed"
 
 let playOneTurnAtATime() =
     while true do
+        ksprintf log "Take screenshot to play one turn"
         let screenshotFilename = waitForScreenshot()
         let state = readGameStateFromScreenshot screenshotFilename
         if state.turnPhase = OpponentsTurn then
@@ -140,28 +126,31 @@ let playOneTurnAtATime() =
             ksprintf log "My turn, playing!"
             playOneTurn state
 
+let mutable screenshotCount = 0
 let rec takeScreenshot(): SimpleBitmap =
+    if (screenshotCount+1) % 100 > 95 then
+        ksprintf log "Will clear screenshots soon, count: %d" screenshotCount
+    if (screenshotCount+1) % 100 = 0 then
+        clearSteamScreenshots()
     let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
-    try
-        watcher.InternalBufferSize <- 1000000
-        sendKey screenshotHotKey
-        let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 10000)
-        if changedResult.TimedOut then
-            ksprintf log "Timed out while waiting for screenshot, retrying..."
-            takeScreenshot() // retry indefinitely
-        else
-            Thread.Sleep 100
-            let filename = screenCaptureDir + @"\" + changedResult.Name
-            try
+    sendKey screenshotHotKey
+    let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 10000)
+    watcher.Dispose()
+    if changedResult.TimedOut then
+        ksprintf log "Timed out while waiting for screenshot, retrying..."
+        takeScreenshot()
+    else
+        screenshotCount <- screenshotCount + 1
+        Thread.Sleep 100
+        let filename = screenCaptureDir + @"\" + changedResult.Name
+        try
+            let ss = SimpleBitmap.fromFile(filename)
+            ss
+        with
+            | _ -> // retry once
+                Thread.Sleep 100
                 let ss = SimpleBitmap.fromFile(filename)
                 ss
-            with
-                | _ -> // retry once
-                    Thread.Sleep 100
-                    let ss = SimpleBitmap.fromFile(filename)
-                    ss
-    finally
-        watcher.Dispose()
 
 let chooseCards() = 
     ksprintf log "Choosing cards"
@@ -191,11 +180,12 @@ let chooseCards() =
             if i <> (5-numCardsOnPage) then
                 sendAndSleep "Up" 20
 
-    Thread.Sleep 1000
-    sendAndSleep "x" 1800
+    Thread.Sleep 2500
+    sendAndSleep "x" 2500
     ksprintf log "Cards chosen!"
 
 let startGame i =
+    ksprintf log "--------------------------------------------------------"
     ksprintf log "Starting game %d" i
     sendAndSleep "s" 700 // Play game?
     sendAndSleep "x" 2000 // Yes
@@ -209,7 +199,7 @@ let rec playMatch() =
         let mutable state = readGameState lastScreenshot
         while state.turnPhase = OpponentsTurn && readGamePhase lastScreenshot = Ongoing do
             ksprintf log "Waiting for my turn..."
-            Thread.Sleep 2500
+            Thread.Sleep 1000
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
@@ -238,52 +228,54 @@ let chooseSpoils() =
         sendAndSleep "x" 1300
         for i in 1 .. spoilsSelectionNumber.Value do
             sendAndSleep "x" 1300
+        Thread.Sleep 2000
     else
         ksprintf log "Nothing to do, waiting for game to end..."
         Thread.Sleep 10000
 
-let autoPlay() =
+let autoPlayAgainstThatSittingDude() =
     waitForUserToPressScreenshotHotkey()
     // assert/assume that outside
     for i in 0 .. 2000000000 do
         startGame i
         playMatch()
         chooseSpoils()
-        if i % 10 = 0 then
-            clearSteamScreenshots()
+
+let playOneGameAtATimeStartingFromRulesScreen() =
+    while true do
+        ksprintf log "Take screenshot in rules screen to play one game"
+        waitForScreenshot() |> ignore
+        sendAndSleep "x" 1700 // Rules
+        chooseCards()
+        playMatch()
+        //chooseSpoils()
+
+let playGame initState =
+    let mutable state = initState
+    let sw = new Diagnostics.Stopwatch()
+    while not (AI.isTerminalNode state) do
+        printState state
+        sw.Restart()
+        let (move, value) = AI.getBestMove state 9
+        ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
+                                                                        (snd move / 3) (snd move % 3)
+                                                                        value
+                                                                        sw.ElapsedMilliseconds
+        state <- AI.executeMove state move
+
+    printState state
 
 let playScreenshot (screenshotPath: string) =
     playGame <| readGameStateFromScreenshot screenshotPath
     
-let playTestState() =
-    let state = {
-            turnPhase = OpponentsTurn
-            myHand = [|None; None; None; None             ; hc [1;2;1;1] Me n|]
-            opHand = [|None; None; None; hc [1;1;1;1] Op n; hc [1;1;2;1] Op n|]
-            playGrid = PlayGrid([| pc [1;1;1;1] Me 0; pc [1;1;1;1] Op 0; pc [1;1;1;1] Me 0
-                                   pc [1;1;2;1] Op 0; emptySlot        ; pc [1;2;1;1] Me 0
-                                   pc [1;1;1;1] Op 0; emptySlot        ; pc [1;1;1;1] Me 0 |])
-    }
-    playGame state
-
-// TODO: DEBUG
-// My turn now, playing!
-// 
-//        m1764  | o6631- | m7113
-//        -------+--------+-------
-//        m9952  | o7365  | m5919
-//        -------+--------+------- @9239
-// 5637          |        | m9862-  7872
-// -------------------------------------- v=55 b=4
-//
-// Best move is 4 -> (2,0) with value 4 (took 0 ms)
-//
-//        m1764  | o6631- | m7113
-//        -------+--------+-------
-//        m9952  | o7365  | m5919
-//        -------+--------+-------
-// 5637   m7872  |        | m9862-  9239
-// -------------------------------------- v=70 b=4
+let testState = {
+        turnPhase = MyCardSelection 3
+        myHand = [|None; None; None; hc [9;2;3;9] Me n; hc [7;8;7;2] Me n|]
+        opHand = [|None; None; None; None             ; hc [5;6;3;7] Op n|]
+        playGrid = PlayGrid([| pc [1;7;6;4] Me 0; pc [6;6;3;1] Op -1; pc [7;1;1;3] Me 0
+                               pc [9;9;5;2] Me 0; pc [7;3;6;5] Op  0; pc [5;9;1;9] Me 0
+                               emptySlot        ; emptySlot         ; pc [9;8;6;2] Me 0 |])
+}
 
 [<EntryPoint>]
 let main argv = 
@@ -296,19 +288,20 @@ let main argv =
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
     //playScreenshot <| screenshotDir + @"in-game\card_selection_cursor_1.jpg"
     //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
-    //playTestState()
+    //playScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
+    //playGame testState
         
-    //let ss = SimpleBitmap.fromFile <| screenshotDir + @"in-game\misread_card_2.jpg"
-    //let card = readCard ss None None None <| Point(616+240, 93+308)
-    //printfn "Card: %A" card
+    //let gameState = readGameStateFromScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
+    //printfn "%O" gameState
 
     //while true do
     //    waitForUserToPressScreenshotHotkey()
     //    clearSteamScreenshots()
     //    Thread.Sleep 500
 
-    //autoPlay()
-    playOneTurnAtATime()
+    //autoPlayAgainstThatSittingDude()
+    //playOneTurnAtATime()
+    playOneGameAtATimeStartingFromRulesScreen()
 
     sw.Stop()
     ksprintf log "Time elapsed: %d ms" sw.ElapsedMilliseconds

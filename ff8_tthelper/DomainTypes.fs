@@ -2,6 +2,12 @@
 
 exception GameStateDetectionError of string
 
+let digitNameToPower(digitName: string) =
+    if digitName = "A" then 10 else int digitName
+
+let powerToDigitName(digit: int) =
+    if digit = 10 then "A" else digit.ToString()
+
 type HandIndex = int
 type GridCoords = int*int
 
@@ -21,7 +27,7 @@ type Card =
     { powers: int[]; powerModifier: int; owner: Player; element: Element option}
     member x.modifiedPower powerIndex = x.powers.[powerIndex] + x.powerModifier
     override x.ToString() =
-        let powersString = x.powers |> Array.map string |> String.concat ","
+        let powersString = x.powers |> Array.map powerToDigitName |> String.concat ","
         let elementString = if x.element.IsNone then "None" else sprintf "%A" x.element.Value
         sprintf "Card %s %+d %A %s" powersString x.powerModifier x.owner elementString
 
@@ -53,8 +59,8 @@ type PlayGrid(slots: PlayGridSlot array) =
     override this.GetHashCode() =
         this.Slots.GetHashCode()
     override g.ToString() =
-        "PlayGrid:\n    " + ([ for y in 0..2 -> slots.[y*3 .. y*3+2] |> Array.map playGridSlotToString |> String.concat "\t" ]
-                            |> String.concat "\n    ")
+        "PlayGrid:\r\n    " + ([ for y in 0..2 -> slots.[y*3 .. y*3+2] |> Array.map playGridSlotToString |> String.concat "\t" ]
+                              |> String.concat "\r\n    ")
 
 type Hand = Card option array
 
@@ -65,7 +71,7 @@ let private elementChar element =
 let private elementOptionChar elementOption =
     match elementOption with Some(e) -> elementChar e | None -> ' '
 let private cardPowerString (c: Card) =
-    sprintf "%d%d%d%d" c.powers.[0] c.powers.[1] c.powers.[2] c.powers.[3]
+    c.powers |> Array.map powerToDigitName |> String.concat ""
 let private playerChar player = if player = Me then 'm' else 'o'
 let private gridSlotString playGridSlot =
     match playGridSlot with
@@ -112,9 +118,9 @@ type GameState =
                                                         (handSlotString x.myHand.[handIndex])
 
     override x.ToString() =
-        "\n"
-      + (x.gameStateLine 0 (Some 0)) + "\n"
-      + (x.gameStateLine 1 None)     + "\n"
-      + (x.gameStateLine 2 (Some 1)) + "\n"
-      + (x.gameStateLine 3 None)     + "\n"
-      + (x.gameStateLine 4 (Some 2)) + "\n"
+        "\r\n"
+      + (x.gameStateLine 0 (Some 0)) + "\r\n"
+      + (x.gameStateLine 1 None)     + "\r\n"
+      + (x.gameStateLine 2 (Some 1)) + "\r\n"
+      + (x.gameStateLine 3 None)     + "\r\n"
+      + (x.gameStateLine 4 (Some 2)) + "\r\n"
