@@ -124,3 +124,9 @@ type GameState =
       + (x.gameStateLine 2 (Some 1)) + "\r\n"
       + (x.gameStateLine 3 None)     + "\r\n"
       + (x.gameStateLine 4 (Some 2)) + "\r\n"
+
+type Rules =
+    {
+        isSame: bool
+        isPlus: bool
+    }

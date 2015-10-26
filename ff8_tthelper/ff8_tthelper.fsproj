@@ -61,9 +61,11 @@
     <Compile Include="Polygon.fs" />
     <Compile Include="BitmapHelpers.fs" />
     <Compile Include="DomainTypes.fs" />
+    <Compile Include="TestHelpers.fs" />
     <Compile Include="GameStateDetection.fs" />
     <Compile Include="GameStateDetectionTest.fs" />
     <Compile Include="AI.fs" />
+    <Compile Include="AITest.fs" />
     <Compile Include="Program.fs" />
     <Content Include="packages.config" />
   </ItemGroup>

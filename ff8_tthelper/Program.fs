@@ -3,6 +3,8 @@
 open DomainTypes
 open BitmapHelpers
 open GameStateDetectionTest
+open TestHelpers
+
 open System
 open Printf
 
