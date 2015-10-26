@@ -180,7 +180,7 @@ let chooseCards() =
             if i <> (5-numCardsOnPage) then
                 sendAndSleep "Up" 20
 
-    Thread.Sleep 2500
+    Thread.Sleep 1500
     sendAndSleep "x" 2500
     ksprintf log "Cards chosen!"
 
