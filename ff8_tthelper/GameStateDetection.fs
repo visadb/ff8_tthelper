@@ -351,6 +351,9 @@ let readNumberOfCardsOnCardChoosingScreen screenshot =
             bitmapDiff (getCardChoosingScreenCardSymbolBitmap screenshot i) modelCardSymbol}
         |> Seq.findIndex ((<) 0.03) |> ((+) 1)
 
+let readRules screenshot =
+    Rules.none
+
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
 

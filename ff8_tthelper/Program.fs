@@ -68,7 +68,7 @@ let clearSteamScreenshots() =
     let proc = Diagnostics.Process.Start(ahkProg, clearScript)
     proc.WaitForExit()
 
-let playOneTurn state =
+let playOneTurn (state: GameState) (rules: Rules) =
     let sw = Diagnostics.Stopwatch()
     let selectHandCard offset = 
         ksprintf log "Selecting hand card: %d" offset
@@ -85,12 +85,12 @@ let playOneTurn state =
         sendAndSleep "x" 20
 
     sw.Restart()
-    let (srcHandIndex, targetGridIndex), value = AI.getBestMove state 9
+    let (srcHandIndex, targetGridIndex), value = AI.getBestMove state rules 9
     let took = sw.ElapsedMilliseconds
     printState state
     ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (srcHandIndex) (targetGridIndex/3)
                                                                     (targetGridIndex%3) value took
-    printState <| AI.executeMove state (srcHandIndex, targetGridIndex)
+    printState <| AI.executeMove state rules (srcHandIndex, targetGridIndex)
     match state.turnPhase with
         | MyCardSelection currentHandIndex ->
             selectHandCard <| srcHandIndex - currentHandIndex
@@ -117,7 +117,7 @@ let waitForUserToPressScreenshotHotkey() =
     waitForScreenshot() |> ignore
     ksprintf log "pressed"
 
-let playOneTurnAtATime() =
+let playOneTurnAtATime rules =
     while true do
         ksprintf log "Take screenshot to play one turn"
         let screenshotFilename = waitForScreenshot()
@@ -126,7 +126,7 @@ let playOneTurnAtATime() =
             ksprintf log "Not my turn..."
         else
             ksprintf log "My turn, playing!"
-            playOneTurn state
+            playOneTurn state rules
 
 let mutable screenshotCount = 0
 let rec takeScreenshot(): SimpleBitmap =
@@ -195,7 +195,7 @@ let startGame i =
     sendAndSleep "x" 1700 // Rules
     chooseCards()
 
-let rec playMatch() =
+let rec playMatch (rules: Rules) =
     let mutable lastScreenshot = takeScreenshot()
     while readGamePhase lastScreenshot = Ongoing do
         let mutable state = readGameState lastScreenshot
@@ -206,7 +206,7 @@ let rec playMatch() =
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
             ksprintf log "My turn now, playing!"
-            playOneTurn state
+            playOneTurn state rules
             Thread.Sleep 2800
             lastScreenshot <- takeScreenshot()
     let result = readGamePhase lastScreenshot
@@ -214,7 +214,7 @@ let rec playMatch() =
     Thread.Sleep 500
     sendAndSleep "x" 2000 // Dismiss Won/Draw/Lost screen
     if result = Draw then
-        playMatch()
+        playMatch rules
 
 let chooseSpoils() =
     let spoilsSelectionNumber = readSpoilsSelectionNumber (takeScreenshot())
@@ -235,35 +235,36 @@ let chooseSpoils() =
         ksprintf log "Nothing to do, waiting for game to end..."
         Thread.Sleep 10000
 
-let autoPlayAgainstThatSittingDude() =
+let autoPlayAgainstThatSittingDude rules =
     waitForUserToPressScreenshotHotkey()
     // assert/assume that outside
     for i in 0 .. 2000000000 do
         startGame i
-        playMatch()
+        playMatch rules
         chooseSpoils()
 
 let playOneGameAtATimeStartingFromRulesScreen() =
     while true do
         ksprintf log "Take screenshot in rules screen to play one game"
-        waitForScreenshot() |> ignore
-        sendAndSleep "x" 1700 // Rules
-        chooseCards()
-        playMatch()
+        let rules = waitForScreenshot() |> readRules
+        sendAndSleep "x" 1700 // dismiss rules
+        if not rules.isRandom then
+            chooseCards()
+        playMatch rules
         //chooseSpoils()
 
-let playGame initState =
+let playGame initState rules =
     let mutable state = initState
     let sw = new Diagnostics.Stopwatch()
     while not (AI.isTerminalNode state) do
         printState state
         sw.Restart()
-        let (move, value) = AI.getBestMove state 9
+        let (move, value) = AI.getBestMove state rules 9
         ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
                                                                         (snd move / 3) (snd move % 3)
                                                                         value
                                                                         sw.ElapsedMilliseconds
-        state <- AI.executeMove state move
+        state <- AI.executeMove state rules move
 
     printState state
 

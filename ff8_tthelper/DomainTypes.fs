@@ -22,10 +22,14 @@ type Element =
     Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | Unknown
     static member All = [ Earth; Fire; Holy; Ice; Poison; Thunder; Water; Wind ]
 
-type Player = Me | Op
+type Player =
+    Me | Op
+    member x.opposite = if x = Me then Op else Me
+
 type Card =
     { powers: int[]; powerModifier: int; owner: Player; element: Element option}
     member x.modifiedPower powerIndex = x.powers.[powerIndex] + x.powerModifier
+    member x.withOppositeOwner = { x with owner = x.owner.opposite }
     override x.ToString() =
         let powersString = x.powers |> Array.map powerToDigitName |> String.concat ","
         let elementString = if x.element.IsNone then "None" else sprintf "%A" x.element.Value
@@ -40,7 +44,11 @@ type PlayGridSlot =
                         | _ -> raise (new System.NullReferenceException("not Full"))
     member x.element = match x with
                         | Empty oe -> oe
-                        | _ -> raise (new System.NullReferenceException("not Full"))
+                        | _ -> raise (new System.NullReferenceException("not Empty"))
+    member x.withOppositeCardOwner = match x with
+                                      | Full c -> Full c.withOppositeOwner
+                                      | _ -> raise (new System.NullReferenceException("not Full"))
+
 
 let playGridSlotToString slot =
     match slot with
@@ -91,6 +99,14 @@ let private gridSlotSelectedChar turnPhase gridCoords =
     match turnPhase with
         | MyTargetSelection (_,coords) when coords = gridCoords -> '@'
         | _ -> ' '
+
+type Rules =
+    {
+        isRandom: bool
+        isSame: bool
+        isPlus: bool
+    }
+    static member none = { isSame = false; isPlus = false; isRandom = false }
         
 type GameState = 
     {
@@ -124,9 +140,3 @@ type GameState =
       + (x.gameStateLine 2 (Some 1)) + "\r\n"
       + (x.gameStateLine 3 None)     + "\r\n"
       + (x.gameStateLine 4 (Some 2)) + "\r\n"
-
-type Rules =
-    {
-        isSame: bool
-        isPlus: bool
-    }
