@@ -82,27 +82,46 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
                                   { newCard with powerModifier = modifier}
         newPlayGrid.Slots.[gi] <- Full updatedCard
 
-    let getCascadingNeighborIndexes () = if rules.isSame && gi = 7 then [4; 6] else []
+    let getCascadingNeighborIndexes () =
+        let mutable sameIndexes = []
+        if rules.isSame then
+            if gi >= 3 &&                       playGrid.[gi-3].isFull && playGrid.[gi-3].card.powers.[3] = newCard.powers.[0] then sameIndexes <- (gi-3) :: sameIndexes
+            if gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull && playGrid.[gi-1].card.powers.[2] = newCard.powers.[1] then sameIndexes <- (gi-1) :: sameIndexes
+            if gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull && playGrid.[gi+1].card.powers.[1] = newCard.powers.[2] then sameIndexes <- (gi+1) :: sameIndexes
+            if gi <= 5 &&                       playGrid.[gi+3].isFull && playGrid.[gi+3].card.powers.[0] = newCard.powers.[3] then sameIndexes <- (gi+3) :: sameIndexes
+            if sameIndexes.Length < 2 then sameIndexes <- []
+
+        let mutable plusIndexes = []
+        if rules.isPlus then
+            let mutable powerSums = [
+                (if gi >= 3 &&                       playGrid.[gi-3].isFull then playGrid.[gi-3].card.powers.[3] + newCard.powers.[0] else -1)
+                (if gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull then playGrid.[gi-1].card.powers.[2] + newCard.powers.[1] else -1)
+                (if gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull then playGrid.[gi+1].card.powers.[1] + newCard.powers.[2] else -1)
+                (if gi <= 5 &&                       playGrid.[gi+3].isFull then playGrid.[gi+3].card.powers.[0] + newCard.powers.[3] else -1)
+            ]
+            let repeatedPowerSums = powerSums |> List.filter ((<=) 0) |> List.countBy id |> List.filter (snd >> ((<=) 2)) |> List.map fst
+            plusIndexes <- powerSums |> List.mapi (fun i p -> (i,p))
+                                     |> List.filter (fun (_,p) -> List.exists ((=) p) repeatedPowerSums)
+                                     |> List.map fst
+                                     |> List.map (fun i -> match i with | 0->gi-3 | 1->gi-1 | 2->gi+1 | 3->gi+3 | _ -> -1)
+        List.append sameIndexes plusIndexes
 
     let newCardOwner = newCard.owner
-    let rec updateNeighbor gi neighborIndex colOffset thisPowerIndex cascade =
-        if   neighborIndex >= 0 && neighborIndex <= 8
-          && (colOffset <> -1 || (gi <> 3 && gi <> 6))
-          && (colOffset <> +1 || (gi <> 2 && gi <> 5)) then
-            let neighborSlot = playGrid.[neighborIndex]
-            if neighborSlot.isFull && neighborSlot.card.owner <> newCardOwner then
-                let updatedNewCard = newPlayGrid.[gi].card
-                let neighborPower = neighborSlot.card.modifiedPower (3 - thisPowerIndex)
-                if neighborPower < updatedNewCard.modifiedPower thisPowerIndex then
-                    newPlayGrid.Slots.[neighborIndex] <- neighborSlot.withOppositeCardOwner
-                    if cascade then
-                        updateNeighbors neighborIndex true
+    let rec updateNeighbor gi neighborIndex thisPowerIndex cascade =
+        let neighborSlot = playGrid.[neighborIndex]
+        if neighborSlot.isFull && neighborSlot.card.owner <> newCardOwner then
+            let updatedNewCard = newPlayGrid.[gi].card
+            let neighborPower = neighborSlot.card.modifiedPower (3 - thisPowerIndex)
+            if neighborPower < updatedNewCard.modifiedPower thisPowerIndex then
+                newPlayGrid.Slots.[neighborIndex] <- neighborSlot.withOppositeCardOwner
+                if cascade then
+                    updateNeighbors neighborIndex true
 
     and updateNeighbors gi cascade =
-        updateNeighbor gi (gi-3+0)  0 0 cascade // top
-        updateNeighbor gi (gi-0-1) -1 1 cascade // left
-        updateNeighbor gi (gi-0+1) +1 2 cascade // right
-        updateNeighbor gi (gi+3+0)  0 3 cascade // bottom
+        if gi >= 3 then                       updateNeighbor gi (gi-3+0) 0 cascade // top
+        if gi <> 0 && gi <> 3 && gi <> 6 then updateNeighbor gi (gi-0-1) 1 cascade // left
+        if gi <> 2 && gi <> 5 && gi <> 8 then updateNeighbor gi (gi-0+1) 2 cascade // right
+        if gi <= 5 then                       updateNeighbor gi (gi+3+0) 3 cascade // bottom
 
     updateTargetSlot ()
 
@@ -112,7 +131,8 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
             if newPlayGrid.Slots.[neighborIndex].card.owner <> newCardOwner then
                 newPlayGrid.Slots.[neighborIndex] <- newPlayGrid.Slots.[neighborIndex].withOppositeCardOwner
                 updateNeighbors neighborIndex true
-    updateNeighbors gi false
+
+    updateNeighbors gi false // normal strength based capture
 
 
 let inline executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,playGridIndex) =
