@@ -82,33 +82,32 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
         newPlayGrid.Slots.[gi] <- Full updatedCard
 
     let getCascadingNeighborIndexes () =
-        let mutable sameIndexes = []
+        let hasTopNeighbor    = gi >= 3 &&                       playGrid.[gi-3].isFull
+        let hasLeftNeighbor   = gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull
+        let hasRightNeighbor  = gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull
+        let hasBottomNeighbor = gi <= 5 &&                       playGrid.[gi+3].isFull
+        let mutable cascIndexes = []
         if rules.isSame then
-            if gi >= 3 &&                       playGrid.[gi-3].isFull && playGrid.[gi-3].card.powers.[3] = newCard.powers.[0] then sameIndexes <- (gi-3) :: sameIndexes
-            if gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull && playGrid.[gi-1].card.powers.[2] = newCard.powers.[1] then sameIndexes <- (gi-1) :: sameIndexes
-            if gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull && playGrid.[gi+1].card.powers.[1] = newCard.powers.[2] then sameIndexes <- (gi+1) :: sameIndexes
-            if gi <= 5 &&                       playGrid.[gi+3].isFull && playGrid.[gi+3].card.powers.[0] = newCard.powers.[3] then sameIndexes <- (gi+3) :: sameIndexes
-            if sameIndexes.Length < 2 then sameIndexes <- []
-
-        let mutable plusIndexes = []
+            if hasTopNeighbor    && playGrid.[gi-3].card.powers.[3] = newCard.powers.[0] then cascIndexes <- (gi-3) :: cascIndexes
+            if hasLeftNeighbor   && playGrid.[gi-1].card.powers.[2] = newCard.powers.[1] then cascIndexes <- (gi-1) :: cascIndexes
+            if hasRightNeighbor  && playGrid.[gi+1].card.powers.[1] = newCard.powers.[2] then cascIndexes <- (gi+1) :: cascIndexes
+            if hasBottomNeighbor && playGrid.[gi+3].card.powers.[0] = newCard.powers.[3] then cascIndexes <- (gi+3) :: cascIndexes
+            if cascIndexes.Length = 1 then cascIndexes <- []
         if rules.isPlus then
-            let mutable powerSums = [
-                (if gi >= 3 &&                       playGrid.[gi-3].isFull then playGrid.[gi-3].card.powers.[3] + newCard.powers.[0] else -1)
-                (if gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull then playGrid.[gi-1].card.powers.[2] + newCard.powers.[1] else -1)
-                (if gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull then playGrid.[gi+1].card.powers.[1] + newCard.powers.[2] else -1)
-                (if gi <= 5 &&                       playGrid.[gi+3].isFull then playGrid.[gi+3].card.powers.[0] + newCard.powers.[3] else -1)
-            ]
-            let repeatedPowerSums = powerSums |> List.filter ((<=) 0) |> List.countBy id |> List.filter (snd >> ((<=) 2)) |> List.map fst
-            plusIndexes <- powerSums |> List.mapi (fun i p -> (i,p))
-                                     |> List.filter (fun (_,p) -> List.exists ((=) p) repeatedPowerSums)
-                                     |> List.map fst
-                                     |> List.map (fun i -> match i with | 0->gi-3 | 1->gi-1 | 2->gi+1 | 3->gi+3 | _ -> -1)
-        List.append sameIndexes plusIndexes
+            let p0 = if hasTopNeighbor    then playGrid.[gi-3].card.powers.[3] + newCard.powers.[0] else -1
+            let p1 = if hasLeftNeighbor   then playGrid.[gi-1].card.powers.[2] + newCard.powers.[1] else -1
+            let p2 = if hasRightNeighbor  then playGrid.[gi+1].card.powers.[1] + newCard.powers.[2] else -1
+            let p3 = if hasBottomNeighbor then playGrid.[gi+3].card.powers.[0] + newCard.powers.[3] else -1
+            if p0 >= 0 && (p0 = p1 || p0 = p2 || p0 = p3) then cascIndexes <- (gi-3) :: cascIndexes
+            if p1 >= 0 && (p1 = p0 || p1 = p2 || p1 = p3) then cascIndexes <- (gi-1) :: cascIndexes
+            if p2 >= 0 && (p2 = p0 || p2 = p1 || p2 = p3) then cascIndexes <- (gi+1) :: cascIndexes
+            if p3 >= 0 && (p3 = p0 || p3 = p1 || p3 = p2) then cascIndexes <- (gi+3) :: cascIndexes
+        cascIndexes
 
     let newCardOwner = newCard.owner
     let rec updateNeighbor gi neighborIndex thisPowerIndex cascade =
         let neighborSlot = newPlayGrid.[neighborIndex]
-        if neighborSlot.isFull && neighborSlot.card.owner <> newCardOwner then
+        if neighborSlot.card.owner <> newCardOwner then
             let updatedNewCard = newPlayGrid.[gi].card
             let neighborPower = neighborSlot.card.modifiedPower (3 - thisPowerIndex)
             if neighborPower < updatedNewCard.modifiedPower thisPowerIndex then
@@ -117,10 +116,10 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
                     updateNeighbors neighborIndex true
 
     and updateNeighbors gi2 cascade =
-        if gi2 >= 3 then                         updateNeighbor gi2 (gi2-3+0) 0 cascade // top
-        if gi2 <> 0 && gi2 <> 3 && gi2 <> 6 then updateNeighbor gi2 (gi2-0-1) 1 cascade // left
-        if gi2 <> 2 && gi2 <> 5 && gi2 <> 8 then updateNeighbor gi2 (gi2-0+1) 2 cascade // right
-        if gi2 <= 5 then                         updateNeighbor gi2 (gi2+3+0) 3 cascade // bottom
+        if gi2 >= 3 &&                         playGrid.[gi2-3].isFull then updateNeighbor gi2 (gi2-3+0) 0 cascade // top
+        if gi2 <> 0 && gi2 <> 3 && gi2 <> 6 && playGrid.[gi2-1].isFull then updateNeighbor gi2 (gi2-0-1) 1 cascade // left
+        if gi2 <> 2 && gi2 <> 5 && gi2 <> 8 && playGrid.[gi2+1].isFull then updateNeighbor gi2 (gi2-0+1) 2 cascade // right
+        if gi2 <= 5 &&                         playGrid.[gi2+3].isFull then updateNeighbor gi2 (gi2+3+0) 3 cascade // bottom
 
     updateTargetSlot ()
 
