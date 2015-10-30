@@ -70,7 +70,6 @@ let inline private handWithout newHand handIndex hand =
     newHand.[0] <- None
     newHand
 
-
 let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) rules (gi: int) (newCard: Card) =
     Array.blit playGrid.Slots 0 newPlayGrid.Slots 0 9
 
@@ -108,7 +107,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
 
     let newCardOwner = newCard.owner
     let rec updateNeighbor gi neighborIndex thisPowerIndex cascade =
-        let neighborSlot = playGrid.[neighborIndex]
+        let neighborSlot = newPlayGrid.[neighborIndex]
         if neighborSlot.isFull && neighborSlot.card.owner <> newCardOwner then
             let updatedNewCard = newPlayGrid.[gi].card
             let neighborPower = neighborSlot.card.modifiedPower (3 - thisPowerIndex)
@@ -117,11 +116,11 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
                 if cascade then
                     updateNeighbors neighborIndex true
 
-    and updateNeighbors gi cascade =
-        if gi >= 3 then                       updateNeighbor gi (gi-3+0) 0 cascade // top
-        if gi <> 0 && gi <> 3 && gi <> 6 then updateNeighbor gi (gi-0-1) 1 cascade // left
-        if gi <> 2 && gi <> 5 && gi <> 8 then updateNeighbor gi (gi-0+1) 2 cascade // right
-        if gi <= 5 then                       updateNeighbor gi (gi+3+0) 3 cascade // bottom
+    and updateNeighbors gi2 cascade =
+        if gi2 >= 3 then                         updateNeighbor gi2 (gi2-3+0) 0 cascade // top
+        if gi2 <> 0 && gi2 <> 3 && gi2 <> 6 then updateNeighbor gi2 (gi2-0-1) 1 cascade // left
+        if gi2 <> 2 && gi2 <> 5 && gi2 <> 8 then updateNeighbor gi2 (gi2-0+1) 2 cascade // right
+        if gi2 <= 5 then                         updateNeighbor gi2 (gi2+3+0) 3 cascade // bottom
 
     updateTargetSlot ()
 
