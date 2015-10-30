@@ -269,7 +269,7 @@ let playGame initState rules =
     printState state
 
 let playScreenshot (screenshotPath: string) =
-    playGame <| readGameStateFromScreenshot screenshotPath
+    playGame (readGameStateFromScreenshot screenshotPath) Rules.none
     
 let testState = {
         turnPhase = MyCardSelection 3
@@ -289,7 +289,7 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //playScreenshot <| screenshotDir + @"in-game\card_selection_cursor_1.jpg"
+    playScreenshot <| screenshotDir + @"in-game\card_selection_cursor_1.jpg"
     //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
     //playScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
     //playGame testState
@@ -304,7 +304,7 @@ let main argv =
 
     //autoPlayAgainstThatSittingDude()
     //playOneTurnAtATime()
-    playOneGameAtATimeStartingFromRulesScreen()
+    //playOneGameAtATimeStartingFromRulesScreen()
 
     sw.Stop()
     ksprintf log "Time elapsed: %d ms" sw.ElapsedMilliseconds
