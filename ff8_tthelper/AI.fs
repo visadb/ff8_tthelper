@@ -70,6 +70,12 @@ let inline private handWithout newHand handIndex hand =
     newHand.[0] <- None
     newHand
 
+let inline private neighborIndexIfExists (playGrid: PlayGrid) gi dir =
+    if      dir = 0 then if gi >= 3                        && playGrid.[gi-3].isFull then gi-3 else -1
+    else if dir = 1 then if gi <> 0 && gi <> 3 && gi <> 6  && playGrid.[gi-1].isFull then gi-1 else -1
+    else if dir = 2 then if gi <> 2 && gi <> 5 && gi <> 8  && playGrid.[gi+1].isFull then gi+1 else -1
+    else                 if gi <= 5                        && playGrid.[gi+3].isFull then gi+3 else -1
+
 let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) rules (gi: int) (newCard: Card) =
     Array.blit playGrid.Slots 0 newPlayGrid.Slots 0 9
 
@@ -82,22 +88,22 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
         newPlayGrid.Slots.[gi] <- Full updatedCard
 
     let getCascadingNeighborIndexes () =
-        let hasTopNeighbor    = gi >= 3 &&                       playGrid.[gi-3].isFull
-        let hasLeftNeighbor   = gi <> 0 && gi <> 3 && gi <> 6 && playGrid.[gi-1].isFull
-        let hasRightNeighbor  = gi <> 2 && gi <> 5 && gi <> 8 && playGrid.[gi+1].isFull
-        let hasBottomNeighbor = gi <= 5 &&                       playGrid.[gi+3].isFull
         let mutable cascIndexes = []
         if rules.isSame then
-            if hasTopNeighbor    && playGrid.[gi-3].card.powers.[3] = newCard.powers.[0] then cascIndexes <- (gi-3) :: cascIndexes
-            if hasLeftNeighbor   && playGrid.[gi-1].card.powers.[2] = newCard.powers.[1] then cascIndexes <- (gi-1) :: cascIndexes
-            if hasRightNeighbor  && playGrid.[gi+1].card.powers.[1] = newCard.powers.[2] then cascIndexes <- (gi+1) :: cascIndexes
-            if hasBottomNeighbor && playGrid.[gi+3].card.powers.[0] = newCard.powers.[3] then cascIndexes <- (gi+3) :: cascIndexes
+            let inline addIndexIfSame dir =
+                let neighborIndex = neighborIndexIfExists playGrid gi dir
+                if neighborIndex >= 0 && playGrid.[neighborIndex].card.powers.[3-dir] = newCard.powers.[dir] then
+                   cascIndexes <- neighborIndex :: cascIndexes
+            addIndexIfSame 0
+            addIndexIfSame 1
+            addIndexIfSame 2
+            addIndexIfSame 3
             if cascIndexes.Length = 1 then cascIndexes <- []
         if rules.isPlus then
-            let p0 = if hasTopNeighbor    then playGrid.[gi-3].card.powers.[3] + newCard.powers.[0] else -1
-            let p1 = if hasLeftNeighbor   then playGrid.[gi-1].card.powers.[2] + newCard.powers.[1] else -1
-            let p2 = if hasRightNeighbor  then playGrid.[gi+1].card.powers.[1] + newCard.powers.[2] else -1
-            let p3 = if hasBottomNeighbor then playGrid.[gi+3].card.powers.[0] + newCard.powers.[3] else -1
+            let inline powerSum dir =
+                let neighborIndex = neighborIndexIfExists playGrid gi dir
+                if neighborIndex >= 0 then playGrid.[neighborIndex].card.powers.[3-dir] + newCard.powers.[dir] else -1
+            let (p0, p1, p2, p3) = (powerSum 0, powerSum 1, powerSum 2, powerSum 3)
             if p0 >= 0 && (p0 = p1 || p0 = p2 || p0 = p3) then cascIndexes <- (gi-3) :: cascIndexes
             if p1 >= 0 && (p1 = p0 || p1 = p2 || p1 = p3) then cascIndexes <- (gi-1) :: cascIndexes
             if p2 >= 0 && (p2 = p0 || p2 = p1 || p2 = p3) then cascIndexes <- (gi+1) :: cascIndexes
@@ -114,12 +120,11 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
                 newPlayGrid.Slots.[neighborIndex] <- neighborSlot.withOppositeCardOwner
                 if cascade then
                     updateNeighbors neighborIndex true
-
     and updateNeighbors gi2 cascade =
-        if gi2 >= 3 &&                         playGrid.[gi2-3].isFull then updateNeighbor gi2 (gi2-3+0) 0 cascade // top
-        if gi2 <> 0 && gi2 <> 3 && gi2 <> 6 && playGrid.[gi2-1].isFull then updateNeighbor gi2 (gi2-0-1) 1 cascade // left
-        if gi2 <> 2 && gi2 <> 5 && gi2 <> 8 && playGrid.[gi2+1].isFull then updateNeighbor gi2 (gi2-0+1) 2 cascade // right
-        if gi2 <= 5 &&                         playGrid.[gi2+3].isFull then updateNeighbor gi2 (gi2+3+0) 3 cascade // bottom
+        if neighborIndexIfExists playGrid gi2 0 >= 0 then updateNeighbor gi2 (gi2-3) 0 cascade // top
+        if neighborIndexIfExists playGrid gi2 1 >= 0 then updateNeighbor gi2 (gi2-1) 1 cascade // left
+        if neighborIndexIfExists playGrid gi2 2 >= 0 then updateNeighbor gi2 (gi2+1) 2 cascade // right
+        if neighborIndexIfExists playGrid gi2 3 >= 0 then updateNeighbor gi2 (gi2+3) 3 cascade // bottom
 
     updateTargetSlot ()
 
