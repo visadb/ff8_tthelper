@@ -76,7 +76,7 @@ let inline private neighborIndexIfExists (playGrid: PlayGrid) gi dir =
     else if dir = 2 then if gi <> 2 && gi <> 5 && gi <> 8  && playGrid.[gi+1].isFull then gi+1 else -1
     else                 if gi <= 5                        && playGrid.[gi+3].isFull then gi+3 else -1
 
-let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) rules (gi: int) (newCard: Card) =
+let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (rules: Rules) (gi: int) (newCard: Card) =
     Array.blit playGrid.Slots 0 newPlayGrid.Slots 0 9
 
     let updateTargetSlot () =
@@ -89,7 +89,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
 
     let getCascadingNeighborIndexes () =
         let mutable cascIndexes = []
-        if rules.isSame then
+        if rules.has Same then
             let inline addIndexIfSame dir =
                 let neighborIndex = neighborIndexIfExists playGrid gi dir
                 if neighborIndex >= 0 && playGrid.[neighborIndex].card.powers.[3-dir] = newCard.powers.[dir] then
@@ -99,7 +99,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) r
             addIndexIfSame 2
             addIndexIfSame 3
             if cascIndexes.Length = 1 then cascIndexes <- []
-        if rules.isPlus then
+        if rules.has Plus then
             let inline powerSum dir =
                 let neighborIndex = neighborIndexIfExists playGrid gi dir
                 if neighborIndex >= 0 then playGrid.[neighborIndex].card.powers.[3-dir] + newCard.powers.[dir] else -1

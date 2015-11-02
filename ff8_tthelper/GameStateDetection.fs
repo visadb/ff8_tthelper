@@ -52,6 +52,11 @@ let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
 let cardChoosingScreenCardSymbolRectangle (i: int) =
     Rectangle(509, 221 + int(58.5*float(i-1)), 6, 11)
 
+let ruleBulletRectangle (i: int) = Rectangle(759, 203 + i*36, 12, 17)
+let ruleRectangle (i: int) =
+    let bulletRect = ruleBulletRectangle i
+    Rectangle(bulletRect.X + bulletRect.Width + 20, bulletRect.Y, 373, bulletRect.Height)
+
 let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
     let r, g, b = R pixel, G pixel, B pixel
     r > minBr && g > minBr && b > minBr
@@ -172,7 +177,7 @@ let private readPowerModifier screenshot (cardTopLeft: Point) =
 
 let private modelCardElements: (Element*SimpleBitmap) list =
     Element.All
-        |> List.filter (fun e -> e <> Holy && e <> Water && e <> Unknown)
+        |> List.filter (fun e -> e <> Holy && e <> Water && e <> UnknownElement)
         |> List.map (fun e ->
             (e, SimpleBitmap.fromFile(imageDir + "element_" + ((sprintf "%A" e).ToLower()) + ".png")))
 
@@ -250,7 +255,7 @@ let private readEmptyPlayGridSlotElement screenshot row col: Element option =
 
 let private readPlayGrid screenshot: PlayGrid =
     PlayGrid(playGridCardPositions
-                |> Array.map (readCard screenshot None None (Some Element.Unknown))
+                |> Array.map (readCard screenshot None None (Some UnknownElement))
                 |> Array.mapi (fun i oc ->
                         match oc with
                             | Some(c) -> Full c
@@ -263,7 +268,7 @@ let private readTurnPhase screenshot =
         myHandCardPositions
             |> Array.map ((swap (+)) cardSelectionOffset)
             |> Array.tryFindIndex (fun pos ->
-                (readCard screenshot (Some Me) (Some 0) (Some Element.Unknown) pos).IsSome)
+                (readCard screenshot (Some Me) (Some 0) (Some UnknownElement) pos).IsSome)
     let targetSelectionPosition =
         lazy ([ for row in 0..2 do
                     for col in 0..2 -> (col, row) ]
@@ -351,8 +356,35 @@ let readNumberOfCardsOnCardChoosingScreen screenshot =
             bitmapDiff (getCardChoosingScreenCardSymbolBitmap screenshot i) modelCardSymbol}
         |> Seq.findIndex ((<) 0.03) |> ((+) 1)
 
+let modelRuleBullet = SimpleBitmap.fromFile(imageDir + @"model_rulebullet.png")
+
+let getRuleBulletBitmap screenshot i =
+    subBitmap screenshot (ruleBulletRectangle i)
+let getRuleBitmap screenshot i =
+    subBitmap screenshot (ruleRectangle i)
+
+let modelRules = [
+        ([Elemental],      SimpleBitmap.fromFile(imageDir + @"model_rule_elemental.png"))
+        ([Open],           SimpleBitmap.fromFile(imageDir + @"model_rule_open.png"))
+        ([Plus],           SimpleBitmap.fromFile(imageDir + @"model_rule_plus.png"))
+        ([Same;Plus],      SimpleBitmap.fromFile(imageDir + @"model_rule_sameplus.png"))
+        ([Random],         SimpleBitmap.fromFile(imageDir + @"model_rule_random.png"))
+        ([SuddenDeath],    SimpleBitmap.fromFile(imageDir + @"model_rule_sudden_death.png"))
+        ([TradeOne],       SimpleBitmap.fromFile(imageDir + @"model_rule_trade_one.png"))
+        ([TradeDiff],      SimpleBitmap.fromFile(imageDir + @"model_rule_trade_diff.png"))
+    ]
+
 let readRules screenshot =
-    Rules.none
+    let ruleExistsInIndex = getRuleBulletBitmap screenshot >> bitmapDiff modelRuleBullet >> ((>) 0.02)
+    let mostLikelyRule i =
+        let ruleBitmap = getRuleBitmap screenshot i
+        modelRules |> List.map (fun (rule, modelBitmap) ->
+                                    (rule, bitmapDiff ruleBitmap modelBitmap))
+                   |> List.minBy snd
+                   |> (fun (rule, diff) -> if diff > 0.02 then [UnknownRule] else rule)
+    [0..15] |> List.filter ruleExistsInIndex
+            |> List.collect mostLikelyRule
+            |> Rules.having
 
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
@@ -603,3 +635,19 @@ module Bootstrap =
     let saveCardChoosingScreenCardSymbolBitmap() =
         let screenshot = SimpleBitmap.fromFile(screenshotDir + @"getting_in\card_selection_page1.jpg")
         (getCardChoosingScreenCardSymbolBitmap screenshot 1).Save(imageDir + "model_card_symbol.png")
+
+    let saveModelRuleBitmaps() =
+        let screenshot1 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg")
+        let screenshot2 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_elemental_diff.jpg")
+        let screenshot3 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_random_plus_elemental_one.jpg")
+
+        (getRuleBulletBitmap screenshot1 1).Save(imageDir + "model_rulebullet.png")
+
+        (getRuleBitmap screenshot1 1).Save(imageDir + "model_rule_open.png")
+        (getRuleBitmap screenshot1 2).Save(imageDir + "model_rule_sudden_death.png")
+        (getRuleBitmap screenshot1 3).Save(imageDir + "model_rule_random.png")
+        (getRuleBitmap screenshot1 4).Save(imageDir + "model_rule_sameplus.png")
+        (getRuleBitmap screenshot1 5).Save(imageDir + "model_rule_elemental.png")
+        (getRuleBitmap screenshot1 6).Save(imageDir + "model_rule_trade_one.png")
+        (getRuleBitmap screenshot2 5).Save(imageDir + "model_rule_trade_diff.png")
+        (getRuleBitmap screenshot3 3).Save(imageDir + "model_rule_plus.png")

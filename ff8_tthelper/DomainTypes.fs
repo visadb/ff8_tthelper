@@ -19,7 +19,7 @@ type TurnPhase =
 type GamePhase = Ongoing | Won | Draw | Lost
 
 type Element =
-    Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | Unknown
+    Earth | Fire | Holy | Ice | Poison | Thunder | Water | Wind | UnknownElement
     static member All = [ Earth; Fire; Holy; Ice; Poison; Thunder; Water; Wind ]
 
 type Player =
@@ -75,7 +75,7 @@ type Hand = Card option array
 let private powerModifierChar c = match c.powerModifier with -1 -> '-' | 0 -> ' ' | 1 -> '+' | _ -> '?'
 let private elementChar element =
     match element with Earth -> 'E' | Fire -> 'F' | Holy -> 'H' | Ice -> 'I' | Poison -> 'P'
-                     | Thunder -> 'T' | Water -> 'A' | Wind -> 'W' | Unknown -> 'U'
+                     | Thunder -> 'T' | Water -> 'A' | Wind -> 'W' | UnknownElement -> 'U'
 let private elementOptionChar elementOption =
     match elementOption with Some(e) -> elementChar e | None -> ' '
 let private cardPowerString (c: Card) =
@@ -100,14 +100,30 @@ let private gridSlotSelectedChar turnPhase gridCoords =
         | MyTargetSelection (_,coords) when coords = gridCoords -> '@'
         | _ -> ' '
 
+type Rule =
+    Elemental | Open | Same | Plus | Random | SuddenDeath | TradeOne | TradeDiff | TradeDirect | UnknownRule
 type Rules =
     {
-        isRandom: bool
-        isSame: bool
-        isPlus: bool
+        rules: Set<Rule>
     }
-    static member none = { isSame = false; isPlus = false; isRandom = false }
-        
+
+    member x.withRule rule = { rules = x.rules.Add rule }
+    member x.has rule = x.rules |> Set.contains rule
+    member x.isValidRuleSet =
+        not (x.rules.Contains UnknownRule) && (Set.intersect x.rules Rules.tradeRules).Count = 1
+    member x.tradeRule: Rule option =
+        try
+            Some (Set.intersect x.rules Rules.tradeRules).MinimumElement
+        with
+            | :? System.ArgumentException -> None
+
+    static member having rules = { rules = Set.ofSeq rules }
+    static member none = Rules.having []
+    static member only rule = Rules. having [rule]
+    static member tradeRules = Set.ofList([TradeOne; TradeDiff; TradeDirect])
+
+    override x.ToString() = sprintf "Rules %A" x.rules
+
 type GameState = 
     {
         turnPhase: TurnPhase

@@ -44,7 +44,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| pc [ 5;4;9;7] Op  0; pc  [1;7;8;3] Me 0;   pc [1;7;6;4] Op 0
                                  pc [ 7;8;7;8] Op +1; pc  [4;7;6;2] Op 0;   pc [5;6;1;9] Op 0
                                  pc [10;4;8;5] Op  0; emptySlot;            pc [9;4;6;2] Op 0 |]) }
-      rules = { Rules.none with isSame = true }; move = (4,7)
+      rules = Rules.only Same; move = (4,7)
       after =
         { turnPhase = OpponentsTurn
           myHand = [|None; None; None; None; None             |]
@@ -62,7 +62,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| pc [ 5;4;9;7] Op  0; pc  [1;7;8;3] Me 0;   pc [1;7;6;6] Op 0
                                  pc [ 7;8;7;8] Op +1; pc  [4;7;6;2] Op 0;   pc [5;6;1;8] Op 0
                                  pc [10;4;8;5] Op  0; emptySlot;            pc [9;5;6;2] Op 0 |]) }
-      rules = { Rules.none with isSame = true }; move = (4,7)
+      rules = Rules.only Same; move = (4,7)
       after =
         { turnPhase = OpponentsTurn
           myHand = [|None; None; None; None; None             |]
@@ -80,7 +80,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;4] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;3;1;9] Me 0
                                  emptySlot;         pc [4;7;3;6] Me 0; emptySlot       |])}
-      rules = { Rules.none with isSame = true }; move = (2,4)
+      rules = Rules.only Same; move = (2,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]
@@ -98,7 +98,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;4] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;4;1;9] Me 0
                                  emptySlot;         emptySlot;         emptySlot       |])}
-      rules = { Rules.none with isSame = true; isPlus = true }; move = (1,4)
+      rules = (Rules.only Same).withRule Plus; move = (1,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]
@@ -116,7 +116,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;4] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;3;1;9] Me 0
                                  emptySlot;         emptySlot;         emptySlot       |])}
-      rules = { Rules.none with isSame = true; isPlus = true }; move = (1,4)
+      rules = Rules.having([Same; Plus]); move = (1,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]
@@ -134,7 +134,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;4] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;3;1;9] Me 0
                                  emptySlot;         pc [4;7;3;6] Me 0; emptySlot       |])}
-      rules = { Rules.none with isSame = true; isPlus = true }; move = (2,4)
+      rules = Rules.having([Same; Plus]); move = (2,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]
@@ -152,7 +152,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;5] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;3;1;9] Me 0
                                  emptySlot;         pc [5;7;3;6] Me 0; emptySlot       |])}
-      rules = { Rules.none with isSame = true; isPlus = true }; move = (2,4)
+      rules = Rules.having([Same; Plus]); move = (2,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]
@@ -170,7 +170,7 @@ let executeMoveTestData = [
           playGrid = PlayGrid([| emptySlot;         pc [9;9;5;4] Me 0; emptySlot
                                  pc [1;5;5;4] Me 0; emptySlot;         pc [5;5;1;9] Me 0
                                  emptySlot;         pc [5;7;3;6] Me 0; emptySlot       |])}
-      rules = { Rules.none with isSame = true; isPlus = true }; move = (2,4)
+      rules = Rules.having([Same; Plus]); move = (2,4)
       after =
         { turnPhase = MyCardSelection 4
           myHand = [|None;              None;              hc [9;8;6;2] Me u; hc [1;7;8;7] Me u; hc [8;4;8;5] Me u|]

@@ -31,14 +31,15 @@ let screenshotHotKey = "F12"
 let bootstrap () =
     //Bootstrap.savePowerModifiersFromExampleScreenshots()
     //Bootstrap.saveCursorFromExampleScreenshot()
-    Bootstrap.saveDigitFilesFromExampleScreenshot()
-    Bootstrap.printDiffs()
+    //Bootstrap.saveDigitFilesFromExampleScreenshot()
+    //Bootstrap.printDiffs()
     //Bootstrap.saveElementSymbolsFromExampleScreenshots()
     //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
     //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
     //Bootstrap.saveResultDetectionBitmaps()
     //Bootstrap.saveSpoilsSelectionNumberBitmaps()
     //Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
+    Bootstrap.saveModelRuleBitmaps()
     ()
 
 let printState state =
@@ -246,12 +247,15 @@ let autoPlayAgainstThatSittingDude rules =
 let playOneGameAtATimeStartingFromRulesScreen() =
     while true do
         ksprintf log "Take screenshot in rules screen to play one game"
-        let rules = waitForScreenshot() |> readRules
-        sendAndSleep "x" 1700 // dismiss rules
-        if not rules.isRandom then
-            chooseCards()
-        playMatch rules
-        //chooseSpoils()
+        let rules = waitForScreenshot() |> SimpleBitmap.fromFile |> readRules
+        if not rules.isValidRuleSet then
+            ksprintf log "Invalid rule set: %A" rules
+        else
+            sendAndSleep "x" 1700 // dismiss rules
+            if not (rules.has DomainTypes.Random) then
+                chooseCards()
+            playMatch rules
+            //chooseSpoils()
 
 let playGame initState rules =
     let mutable state = initState
@@ -261,23 +265,23 @@ let playGame initState rules =
         sw.Restart()
         let (move, value) = AI.getBestMove state rules 9
         ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (fst move)
-                                                                        (snd move / 3) (snd move % 3)
-                                                                        value
-                                                                        sw.ElapsedMilliseconds
+                                                                             (snd move / 3) (snd move % 3)
+                                                                             value
+                                                                             sw.ElapsedMilliseconds
         state <- AI.executeMove state rules move
 
     printState state
 
-let playScreenshot (screenshotPath: string) =
-    playGame (readGameStateFromScreenshot screenshotPath) Rules.none
+let playScreenshot (screenshotPath: string) rules =
+    playGame (readGameStateFromScreenshot screenshotPath) rules
     
 let testState = {
-        turnPhase = MyCardSelection 3
-        myHand = [|None; None; None; hc [9;2;3;9] Me n; hc [7;8;7;2] Me n|]
+        turnPhase = MyCardSelection 4
+        myHand = [|None; None; None; None             ; hc [9;8;6;2] Me n|]
         opHand = [|None; None; None; None             ; hc [5;6;3;7] Op n|]
-        playGrid = PlayGrid([| pc [1;7;6;4] Me 0; pc [6;6;3;1] Op -1; pc [7;1;1;3] Me 0
-                               pc [9;9;5;2] Me 0; pc [7;3;6;5] Op  0; pc [5;9;1;9] Me 0
-                               emptySlot        ; emptySlot         ; pc [9;8;6;2] Me 0 |])
+        playGrid = PlayGrid([| pc [9;9;5;2] Op -1; pc [6;6;3;1] Op -1; pc [7;1;1;3] Op 0
+                               pc [9;9;5;2] Op  0; pc [5;9;1;9] Op  0; pc [1;7;6;4] Op 0
+                               pc [8;4;8;5] Me  0; emptySlot         ; pc [1;7;8;7] Op 0 |])
 }
 
 [<EntryPoint>]
@@ -289,10 +293,10 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    playScreenshot <| screenshotDir + @"in-game\card_selection_cursor_1.jpg"
+    //playScreenshot (screenshotDir + @"in-game\card_selection_cursor_1.jpg") { Rules.none with isSame = true; isPlus = true }
     //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
     //playScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
-    //playGame testState
+    //playGame testState { Rules.none with isSame = true }
         
     //let gameState = readGameStateFromScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
     //printfn "%O" gameState
@@ -304,7 +308,9 @@ let main argv =
 
     //autoPlayAgainstThatSittingDude()
     //playOneTurnAtATime()
-    //playOneGameAtATimeStartingFromRulesScreen()
+    playOneGameAtATimeStartingFromRulesScreen()
+
+    // printfn "Rules: %A" <| (readRules <| SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg"))
 
     sw.Stop()
     ksprintf log "Time elapsed: %d ms" sw.ElapsedMilliseconds

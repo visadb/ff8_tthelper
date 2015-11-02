@@ -7,7 +7,7 @@ let card powers owner powerModifier element =
            element = element; owner = owner}
 let hc powers owner = card powers owner 0
 let pce powers owner powerModifier elem = Full (card powers owner powerModifier elem).Value
-let pc powers owner powerModifier = pce powers owner powerModifier (Some Unknown)
+let pc powers owner powerModifier = pce powers owner powerModifier (Some UnknownElement)
 let emptySlot = PlayGridSlot.Empty None
 let emptySlotElem elem = PlayGridSlot.Empty elem
 
@@ -20,4 +20,4 @@ let p = Some Poison
 let t = Some Thunder
 let w = Some Wind
 let a = Some Water
-let u = Some Unknown
+let u = Some UnknownElement

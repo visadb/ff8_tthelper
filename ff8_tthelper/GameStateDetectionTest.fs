@@ -102,6 +102,19 @@ let numberOfCardsOnCardChoosingScreenReadCorrectly screenshotFilename num =
     let ss = SimpleBitmap.fromFile(screenshotDir + screenshotFilename)
     readNumberOfCardsOnCardChoosingScreen ss |> should equal num
 
+let ruleData = [
+        ("rules_open_sudden_random_sameplus_elemental_one.jpg",
+         Rules.having [Elemental; Open; Same; Plus; Random; SuddenDeath; TradeOne])
+        ("rules_open_sudden_elemental_diff.jpg",
+         Rules.having [Open; SuddenDeath; Elemental; TradeDiff])
+        ("rules_random_plus_elemental_one.jpg",
+         Rules.having [Random; Plus; Elemental; TradeOne])
+    ]
+
+let rulesReadCorrectly (ruleScreenshotFilename, expectedRules) =
+    let rules = readRules <| SimpleBitmap.fromFile(screenshotDir + @"getting_in\" + ruleScreenshotFilename)
+    rules |> should equal expectedRules
+
 [<TestFixture>]
 type ``Game state detector test`` ()=
 
@@ -125,3 +138,7 @@ type ``Game state detector test`` ()=
      ``Number of cards on card choosing screen read correctly`` ()=
         numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page1.jpg" 11;
         numberOfCardsOnCardChoosingScreenReadCorrectly @"getting_in\card_selection_page7.jpg" 9
+
+    [<Test>] member x.
+     ``Rules read correctly`` ()=
+        ruleData |> List.iter rulesReadCorrectly
