@@ -11,6 +11,13 @@ let G pixel = (pixel>>>8) &&& 0xff
 let B pixel = pixel &&& 0xff
 let ARGB(a,r,g,b): IntPixel = (a<<<24) ||| (r<<<16) ||| (g<<<8) ||| b
 
+let private rectanglePoints (rect: Rectangle) =
+    seq { for y in rect.Y..(rect.Y+rect.Height-1) do for x in rect.X..(rect.X+rect.Width-1) -> (x,y) }
+
+let private sizePoints (size: Size) =
+    rectanglePoints <| Rectangle(Point(0,0), size)
+
+
 type SimpleBitmap =
     { Pixels: IntPixel[]; Width: int }
     member x.Height = x.Pixels.Length/x.Width
@@ -29,6 +36,12 @@ type SimpleBitmap =
         x.asBitmap().Save(path, imageFormat)
     member x.Save(path: string) =
         x.Save(path, Imaging.ImageFormat.Png)
+    member this.drawFrom(source: SimpleBitmap, sourceRect: Rectangle, targetPoint: Point) =
+        rectanglePoints sourceRect
+            |> Seq.iter (fun (sourceX, sourceY) ->
+                let thisX = (sourceX - sourceRect.X) + targetPoint.X
+                let thisY = (sourceY - sourceRect.Y) + targetPoint.Y
+                this.SetPixel(thisX, thisY, source.GetPixel(sourceX, sourceY)))
 
     static member fromFile (path: string) =
         let bitmap = new Bitmap(path)
@@ -56,12 +69,9 @@ type BitmapMask =
         match this with
            | RectangleMask masks -> masks |> Seq.exists (fun rect -> rect.Contains(x, y))
            | PolygonMask polygon -> polygon.Contains(x, y)
-        
-let private rectanglePoints (size: Size) =
-    seq { for y in 0..size.Height-1 do for x in 0..size.Width-1 -> (x,y)}
 
 let private maskBitmapImpl (reverse: bool) (mask: BitmapMask) (bitmap: SimpleBitmap) =
-    rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+    sizePoints bitmap.Size |> Seq.iter (fun (x,y) ->
         if reverse = mask.Contains(x,y) then
             bitmap.SetPixel(x,y, 0x00000000)
     )
@@ -71,7 +81,7 @@ let maskBitmapReverse = maskBitmapImpl true
 
 let blurBitmap (bitmap: SimpleBitmap) =
     let blurred = SimpleBitmap.createEmpty bitmap.Width bitmap.Height
-    rectanglePoints bitmap.Size |> Seq.iter (fun (x,y) ->
+    sizePoints bitmap.Size |> Seq.iter (fun (x,y) ->
         let avgCoords = [for y2 in y-1 .. y+1 do if y2>=0 && y2<=bitmap.Height-1 then yield (x,y2)]
         let blurredPixel =
             avgCoords |> List.map bitmap.GetPixel |> List.fold (fun (sr,sg,sb,c) p ->
