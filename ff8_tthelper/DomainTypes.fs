@@ -110,7 +110,7 @@ type Rules =
     member x.withRule rule = { rules = x.rules.Add rule }
     member x.has rule = x.rules |> Set.contains rule
     member x.isValidRuleSet =
-        not (x.rules.Contains UnknownRule) && (Set.intersect x.rules Rules.tradeRules).Count = 1
+        not (x.rules.Contains UnknownRule) && (x.rules.Contains Open) && (Set.intersect x.rules Rules.tradeRules).Count = 1
     member x.tradeRule: Rule option =
         try
             Some (Set.intersect x.rules Rules.tradeRules).MinimumElement

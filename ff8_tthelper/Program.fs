@@ -113,6 +113,17 @@ let waitForScreenshot() =
     finally
         watcher.Dispose()
 
+let waitForScreenshotBitmap() =
+    let mutable bitmap: SimpleBitmap option = None
+    let triesLeft = 5
+    while bitmap.IsNone && triesLeft > 0 do
+        let filename = waitForScreenshot()
+        try
+            bitmap <- Some (SimpleBitmap.fromFile(filename))
+        with
+            | _ -> ksprintf log "Failed to read screenshot"
+    bitmap.Value
+
 let waitForUserToPressScreenshotHotkey() =
     ksprintf log "\r\n--------Press %s inside game" screenshotHotKey
     waitForScreenshot() |> ignore
@@ -247,10 +258,11 @@ let autoPlayAgainstThatSittingDude rules =
 let playOneGameAtATimeStartingFromRulesScreen() =
     while true do
         ksprintf log "Take screenshot in rules screen to play one game"
-        let rules = waitForScreenshot() |> SimpleBitmap.fromFile |> readRules
+        let rules = waitForScreenshotBitmap() |> readRules
         if not rules.isValidRuleSet then
             ksprintf log "Invalid rule set: %A" rules
         else
+            ksprintf log "Read valid rules: %A" rules
             sendAndSleep "x" 1700 // dismiss rules
             if not (rules.has DomainTypes.Random) then
                 chooseCards()

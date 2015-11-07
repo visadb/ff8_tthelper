@@ -109,6 +109,8 @@ let ruleData = [
          Rules.having [Open; SuddenDeath; Elemental; TradeDiff])
         ("rules_random_plus_elemental_one.jpg",
          Rules.having [Random; Plus; Elemental; TradeOne])
+        ("rules_open_sudden_sameplus_elemental_diff.jpg",
+         Rules.having [Open; SuddenDeath; Same; Plus; Elemental; TradeDiff])
     ]
 
 let rulesReadCorrectly (ruleScreenshotFilename, expectedRules) =
