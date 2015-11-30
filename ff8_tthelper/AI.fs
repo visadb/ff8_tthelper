@@ -89,7 +89,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
 
     let getCascadingNeighborIndexes () =
         let mutable cascIndexes = []
-        if rules.has Same then
+        if rules.has Same || rules.has SameWall then
             let inline addIndexIfSame dir =
                 let neighborIndex = neighborIndexIfExists playGrid gi dir
                 if neighborIndex >= 0 && playGrid.[neighborIndex].card.powers.[3-dir] = newCard.powers.[dir] then
@@ -98,8 +98,14 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
             addIndexIfSame 1
             addIndexIfSame 2
             addIndexIfSame 3
-            if cascIndexes.Length = 1 then cascIndexes <- []
+            let sameWallApplies = lazy (rules.has SameWall
+                                     && (   ((gi=0||gi=1||gi=2) && newCard.powers.[0] = 10)
+                                         || ((gi=0||gi=3||gi=6) && newCard.powers.[1] = 10)
+                                         || ((gi=2||gi=5||gi=8) && newCard.powers.[2] = 10)
+                                         || ((gi=6||gi=7||gi=8) && newCard.powers.[3] = 10)))
+            if cascIndexes.Length = 1 && not sameWallApplies.Value then cascIndexes <- []
         if rules.has Plus then
+            let cascIndexesBeforePlus = cascIndexes
             let inline powerSum dir =
                 let neighborIndex = neighborIndexIfExists playGrid gi dir
                 if neighborIndex >= 0 then playGrid.[neighborIndex].card.powers.[3-dir] + newCard.powers.[dir] else -1
@@ -108,6 +114,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
             if p1 >= 0 && (p1 = p0 || p1 = p2 || p1 = p3) then cascIndexes <- (gi-1) :: cascIndexes
             if p2 >= 0 && (p2 = p0 || p2 = p1 || p2 = p3) then cascIndexes <- (gi+1) :: cascIndexes
             if p3 >= 0 && (p3 = p0 || p3 = p1 || p3 = p2) then cascIndexes <- (gi+3) :: cascIndexes
+            if cascIndexes.Length - cascIndexesBeforePlus.Length < 2 then cascIndexes <- cascIndexesBeforePlus
         cascIndexes
 
     let newCardOwner = newCard.owner
@@ -129,11 +136,10 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
     updateTargetSlot ()
 
     let cascadingNeighborIndexes = getCascadingNeighborIndexes ()
-    if cascadingNeighborIndexes.Length >= 2 then
-        for neighborIndex in cascadingNeighborIndexes do
-            if newPlayGrid.Slots.[neighborIndex].card.owner <> newCardOwner then
-                newPlayGrid.Slots.[neighborIndex] <- newPlayGrid.Slots.[neighborIndex].withOppositeCardOwner
-                updateNeighbors neighborIndex true
+    for neighborIndex in cascadingNeighborIndexes do
+        if newPlayGrid.Slots.[neighborIndex].card.owner <> newCardOwner then
+            newPlayGrid.Slots.[neighborIndex] <- newPlayGrid.Slots.[neighborIndex].withOppositeCardOwner
+            updateNeighbors neighborIndex true
 
     updateNeighbors gi false // normal strength based capture
 

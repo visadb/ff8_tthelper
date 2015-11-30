@@ -320,7 +320,7 @@ let main argv =
 
     //autoPlayAgainstThatSittingDude()
     //playOneTurnAtATime()
-    //playOneGameAtATimeStartingFromRulesScreen()
+    playOneGameAtATimeStartingFromRulesScreen()
 
     // printfn "Rules: %A" <| (readRules <| SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg"))
 
