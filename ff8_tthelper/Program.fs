@@ -142,10 +142,10 @@ let playOneTurnAtATime rules =
 
 let mutable screenshotCount = 0
 let rec takeScreenshot(): SimpleBitmap =
-    if (screenshotCount+1) % 100 > 95 then
-        ksprintf log "Will clear screenshots soon, count: %d" screenshotCount
-    if (screenshotCount+1) % 100 = 0 then
-        clearSteamScreenshots()
+    //if (screenshotCount+1) % 100 > 95 then
+    //    ksprintf log "Will clear screenshots soon, count: %d" screenshotCount
+    //if (screenshotCount+1) % 100 = 0 then
+    //    clearSteamScreenshots()
     let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
     sendKey screenshotHotKey
     let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 10000)
@@ -194,7 +194,7 @@ let chooseCards() =
             if i <> (5-numCardsOnPage) then
                 sendAndSleep "Up" 20
 
-    Thread.Sleep 1500
+    Thread.Sleep 1000
     sendAndSleep "x" 2500
     ksprintf log "Cards chosen!"
 
@@ -219,7 +219,7 @@ let rec playMatch (rules: Rules) =
         if readGamePhase lastScreenshot = Ongoing then
             ksprintf log "My turn now, playing!"
             playOneTurn state rules
-            Thread.Sleep 2800
+            Thread.Sleep 1500
             lastScreenshot <- takeScreenshot()
     let result = readGamePhase lastScreenshot
     ksprintf log "Game ended, result: %A" result
@@ -320,7 +320,7 @@ let main argv =
 
     //autoPlayAgainstThatSittingDude()
     //playOneTurnAtATime()
-    playOneGameAtATimeStartingFromRulesScreen()
+    //playOneGameAtATimeStartingFromRulesScreen()
 
     // printfn "Rules: %A" <| (readRules <| SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg"))
 

@@ -52,9 +52,9 @@ let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
 let cardChoosingScreenCardSymbolRectangle (i: int) =
     Rectangle(509, 221 + int(58.5*float(i-1)), 6, 11)
 
-let ruleBulletRectangle (i: int) = Rectangle(759, 203 + i*36, 12, 17)
-let ruleRectangle (i: int) =
-    let bulletRect = ruleBulletRectangle i
+let ruleBulletRectangle ((i,j): int*int) = Rectangle(695 + j*64, 203 + i*36, 12, 17)
+let ruleRectangle ((i,j): int*int) =
+    let bulletRect = ruleBulletRectangle (i,j)
     Rectangle(bulletRect.X + bulletRect.Width + 20, bulletRect.Y, 373, bulletRect.Height)
 
 let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
@@ -358,34 +358,37 @@ let readNumberOfCardsOnCardChoosingScreen screenshot =
 
 let modelRuleBullet = SimpleBitmap.fromFile(imageDir + @"model_rulebullet.png")
 
-let getRuleBulletBitmap screenshot i =
-    subBitmap screenshot (ruleBulletRectangle i)
-let getRuleBitmap screenshot i =
-    subBitmap screenshot (ruleRectangle i)
+let getRuleBulletBitmap screenshot (i,j) =
+    subBitmap screenshot (ruleBulletRectangle (i,j))
+let getRuleBitmap screenshot (i,j) =
+    subBitmap screenshot (ruleRectangle (i,j))
 
 let modelRules = [
-        ([Elemental],      SimpleBitmap.fromFile(imageDir + @"model_rule_elemental.png"))
-        ([Open],           SimpleBitmap.fromFile(imageDir + @"model_rule_open.png"))
-        ([Plus],           SimpleBitmap.fromFile(imageDir + @"model_rule_plus.png"))
-        ([Same],           SimpleBitmap.fromFile(imageDir + @"model_rule_same.png"))
-        ([Same;Plus],      SimpleBitmap.fromFile(imageDir + @"model_rule_sameplus.png"))
-        ([Random],         SimpleBitmap.fromFile(imageDir + @"model_rule_random.png"))
-        ([SuddenDeath],    SimpleBitmap.fromFile(imageDir + @"model_rule_sudden_death.png"))
-        ([TradeOne],       SimpleBitmap.fromFile(imageDir + @"model_rule_trade_one.png"))
-        ([TradeDiff],      SimpleBitmap.fromFile(imageDir + @"model_rule_trade_diff.png"))
+        ([Elemental],          SimpleBitmap.fromFile(imageDir + @"model_rule_elemental.png"))
+        ([Open],               SimpleBitmap.fromFile(imageDir + @"model_rule_open.png"))
+        ([Plus],               SimpleBitmap.fromFile(imageDir + @"model_rule_plus.png"))
+        ([Same],               SimpleBitmap.fromFile(imageDir + @"model_rule_same.png"))
+        ([Same;Plus],          SimpleBitmap.fromFile(imageDir + @"model_rule_sameplus.png"))
+        ([Same;Plus;SameWall], SimpleBitmap.fromFile(imageDir + @"model_rule_samepluswall.png"))
+        ([Random],             SimpleBitmap.fromFile(imageDir + @"model_rule_random.png"))
+        ([SuddenDeath],        SimpleBitmap.fromFile(imageDir + @"model_rule_sudden_death.png"))
+        ([TradeOne],           SimpleBitmap.fromFile(imageDir + @"model_rule_trade_one.png"))
+        ([TradeDiff],          SimpleBitmap.fromFile(imageDir + @"model_rule_trade_diff.png"))
     ]
 
 let readRules screenshot =
     let ruleExistsInIndex = getRuleBulletBitmap screenshot >> bitmapDiff modelRuleBullet >> ((>) 0.02)
-    let mostLikelyRule i =
-        let ruleBitmap = getRuleBitmap screenshot i
+    let mostLikelyRule ij =
+        let ruleBitmap = getRuleBitmap screenshot ij
         modelRules |> List.map (fun (rule, modelBitmap) ->
                                     (rule, bitmapDiff ruleBitmap modelBitmap))
                    |> List.minBy snd
-                   |> (fun (rule, diff) -> if diff > 0.02 then [UnknownRule] else rule)
-    [0..15] |> List.filter ruleExistsInIndex
-            |> List.collect mostLikelyRule
-            |> Rules.having
+                   |> (fun (rule, diff) -> if diff > 0.03 then [UnknownRule] else rule)
+    [ for j in 0..1 do for i in 0..15 -> (i,j) ] |> List.filter ruleExistsInIndex
+                                                 |> List.collect mostLikelyRule
+                                                 |> Rules.having
+
+
 
 module Bootstrap =
     let mutable digitBitmapsFromScreenshot: Map<string, SimpleBitmap> = Map.empty
@@ -641,17 +644,19 @@ module Bootstrap =
         let screenshot1 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg")
         let screenshot2 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_elemental_diff.jpg")
         let screenshot3 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_random_plus_elemental_one.jpg")
+        let screenshot4 = SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_samepluswall_elemental_one.jpg")
 
-        (getRuleBulletBitmap screenshot1 2).Save(imageDir + "model_rulebullet.png")
+        (getRuleBulletBitmap screenshot1 (2,1)).Save(imageDir + "model_rulebullet.png")
 
-        (getRuleBitmap screenshot1 2).Save(imageDir + "model_rule_open.png")
-        (getRuleBitmap screenshot1 4).Save(imageDir + "model_rule_sudden_death.png")
-        (getRuleBitmap screenshot1 6).Save(imageDir + "model_rule_random.png")
-        (getRuleBitmap screenshot1 8).Save(imageDir + "model_rule_sameplus.png")
-        (getRuleBitmap screenshot1 10).Save(imageDir + "model_rule_elemental.png")
-        (getRuleBitmap screenshot1 12).Save(imageDir + "model_rule_trade_one.png")
-        (getRuleBitmap screenshot2 10).Save(imageDir + "model_rule_trade_diff.png")
-        (getRuleBitmap screenshot3 6).Save(imageDir + "model_rule_plus.png")
+        (getRuleBitmap screenshot1 (2,1)).Save(imageDir + "model_rule_open.png")
+        (getRuleBitmap screenshot1 (4,1)).Save(imageDir + "model_rule_sudden_death.png")
+        (getRuleBitmap screenshot1 (6,1)).Save(imageDir + "model_rule_random.png")
+        (getRuleBitmap screenshot1 (8,1)).Save(imageDir + "model_rule_sameplus.png")
+        (getRuleBitmap screenshot1 (10,1)).Save(imageDir + "model_rule_elemental.png")
+        (getRuleBitmap screenshot1 (12,1)).Save(imageDir + "model_rule_trade_one.png")
+        (getRuleBitmap screenshot2 (10,1)).Save(imageDir + "model_rule_trade_diff.png")
+        (getRuleBitmap screenshot3 (6,1)).Save(imageDir + "model_rule_plus.png")
+        (getRuleBitmap screenshot4 (8,0)).Save(imageDir + "model_rule_samepluswall.png")
 
         let sameplus = SimpleBitmap.fromFile(imageDir + "model_rule_sameplus.png")
         let plus = SimpleBitmap.fromFile(imageDir + "model_rule_plus.png")

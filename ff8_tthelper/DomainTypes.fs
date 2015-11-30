@@ -101,7 +101,7 @@ let private gridSlotSelectedChar turnPhase gridCoords =
         | _ -> ' '
 
 type Rule =
-    Elemental | Open | Same | Plus | Random | SuddenDeath | TradeOne | TradeDiff | TradeDirect | UnknownRule
+    Elemental | Open | Same | SameWall | Plus | Random | SuddenDeath | TradeOne | TradeDiff | TradeDirect | UnknownRule
 type Rules =
     {
         rules: Set<Rule>
