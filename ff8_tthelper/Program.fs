@@ -43,7 +43,7 @@ let bootstrap () =
     ()
 
 let printState state =
-    ksprintf log "%O-------------------------------------- v=%d b=%d\r\n" state (AI.evaluateNode state) (AI.cardBalance state)
+    ksprintf log "%O-------------------------------------- b=%d\r\n" state (AI.cardBalance state)
 
 let readGameStateFromScreenshot (screenshotPath: string) =
     let sw = new Diagnostics.Stopwatch()
@@ -305,7 +305,8 @@ let main argv =
 
     //watchScreenshotDir()
     //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //playScreenshot (screenshotDir + @"in-game\card_selection_cursor_1.jpg") { Rules.none with isSame = true; isPlus = true }
+    //for i in 0..2 do
+    //    playScreenshot (screenshotDir + @"in-game\card_selection_cursor_1.jpg") (Rules.having [SameWall; TradeOne])
     //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
     //playScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
     //playGame testState { Rules.none with isSame = true }

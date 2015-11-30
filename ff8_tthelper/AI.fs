@@ -76,7 +76,7 @@ let inline private neighborIndexIfExists (playGrid: PlayGrid) gi dir =
     else if dir = 2 then if gi <> 2 && gi <> 5 && gi <> 8  && playGrid.[gi+1].isFull then gi+1 else -1
     else                 if gi <= 5                        && playGrid.[gi+3].isFull then gi+3 else -1
 
-let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (rules: Rules) (gi: int) (newCard: Card) =
+let private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (rules: Rules) (gi: int) (newCard: Card) =
     Array.blit playGrid.Slots 0 newPlayGrid.Slots 0 9
 
     let updateTargetSlot () =
@@ -88,7 +88,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
         newPlayGrid.Slots.[gi] <- Full updatedCard
 
     let getCascadingNeighborIndexes () =
-        let mutable cascIndexes = []
+        let mutable cascIndexes = List.empty
         if rules.has Same || rules.has SameWall then
             let inline addIndexIfSame dir =
                 let neighborIndex = neighborIndexIfExists playGrid gi dir
@@ -98,12 +98,12 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
             addIndexIfSame 1
             addIndexIfSame 2
             addIndexIfSame 3
-            let sameWallApplies = lazy (rules.has SameWall
-                                     && (   ((gi=0||gi=1||gi=2) && newCard.powers.[0] = 10)
-                                         || ((gi=0||gi=3||gi=6) && newCard.powers.[1] = 10)
-                                         || ((gi=2||gi=5||gi=8) && newCard.powers.[2] = 10)
-                                         || ((gi=6||gi=7||gi=8) && newCard.powers.[3] = 10)))
-            if cascIndexes.Length = 1 && not sameWallApplies.Value then cascIndexes <- []
+            let sameWallApplies () = rules.has SameWall
+                                   && (   ((gi=0||gi=1||gi=2) && newCard.powers.[0] = 10)
+                                       || ((gi=0||gi=3||gi=6) && newCard.powers.[1] = 10)
+                                       || ((gi=2||gi=5||gi=8) && newCard.powers.[2] = 10)
+                                       || ((gi=6||gi=7||gi=8) && newCard.powers.[3] = 10))
+            if cascIndexes.Length = 1 && not (sameWallApplies()) then cascIndexes <- List.empty
         if rules.has Plus then
             let cascIndexesBeforePlus = cascIndexes
             let inline powerSum dir =
@@ -144,7 +144,7 @@ let inline private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (
     updateNeighbors gi false // normal strength based capture
 
 
-let inline executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,playGridIndex) =
+let executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,playGridIndex) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection 4
     let newOpHand = if isMaximizingPlayer then node.opHand else handWithout newHand handIndex node.opHand
@@ -159,7 +159,7 @@ let executeMove node rules move =
 let preallocPlayGrids = [| for i in 1 .. 5*9*9 -> PlayGrid(Array.create 9 (Empty None)) |]
 let preallocHands: Hand[] = [| for i in 1 .. 5*9*9 -> Array.create 5 None |]
 
-let inline childStates (node: GameState) rules depth =
+let childStates (node: GameState) rules depth =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
     let inline isValidMove handIndex playGridIndex =
@@ -184,14 +184,15 @@ let inline childStates (node: GameState) rules depth =
             else -1)
     movesWithStates
 
-let rec private alphaBeta node (rules: Rules) depth alpha beta: (int*int)*int =
+let rec private alphaBeta node (rules: Rules) isTradeOne depth alpha beta: (int*int)*int =
     if depth = 0 || isTerminalNode node then
-        (-1, -1), cardBalance node
+        let bal = cardBalance node
+        (-1, -1), if isTradeOne then min 1 (max bal -1) else bal
     elif node.turnPhase <> OpponentsTurn then
         let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove alpha2 =
             if beta <= alpha2 || childrenIndex = children.Length
             then (bestMove,v)
-            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) rules (depth - 1) alpha2 beta
+            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) rules isTradeOne (depth - 1) alpha2 beta
                  if newV > v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (max alpha2 newV)
                              else loopChildren children (childrenIndex+1) v bestMove alpha2
         loopChildren (childStates node rules depth) 0 System.Int32.MinValue (-1,-1) alpha
@@ -199,10 +200,10 @@ let rec private alphaBeta node (rules: Rules) depth alpha beta: (int*int)*int =
         let rec loopChildren (children: ((int*int)*GameState) []) childrenIndex v bestMove beta2 =
             if beta2 <= alpha || childrenIndex = children.Length
             then (bestMove,v)
-            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) rules (depth - 1) alpha beta2
+            else let newV = snd <| alphaBeta (snd children.[childrenIndex]) rules isTradeOne (depth - 1) alpha beta2
                  if newV < v then loopChildren children (childrenIndex+1) newV (fst children.[childrenIndex]) (min beta2 newV)
                              else loopChildren children (childrenIndex+1) v bestMove beta2
         loopChildren (childStates node rules depth) 0 System.Int32.MaxValue (-1,-1) beta
        
 let getBestMove (node: GameState) (rules: Rules) depth =
-    alphaBeta node rules depth System.Int32.MinValue System.Int32.MaxValue
+    alphaBeta node rules (rules.has TradeOne) depth System.Int32.MinValue System.Int32.MaxValue
