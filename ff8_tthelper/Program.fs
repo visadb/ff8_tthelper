@@ -72,13 +72,13 @@ let clearSteamScreenshots() =
 let playOneTurn (state: GameState) (rules: Rules) =
     let sw = Diagnostics.Stopwatch()
     let selectHandCard offset = 
-        ksprintf log "Selecting hand card: %d" offset
+        ksprintf log "Selecting hand card with offset %d" offset
         let key = if offset < 0 then "Up" else "Down"
         for i in 1 .. abs offset do
             sendAndSleep key 20
         sendAndSleep "x" 20
     let selectTargetSlot rowOffset colOffset =
-        ksprintf log "Selecting target slot: (%d, %d)" rowOffset colOffset
+        ksprintf log "Selecting target slot with offset (%d, %d)" rowOffset colOffset
         if rowOffset = -1 then sendAndSleep "Up" 20
         elif rowOffset = 1 then sendAndSleep "Down" 20
         if colOffset = -1 then sendAndSleep "Left" 20
@@ -90,7 +90,7 @@ let playOneTurn (state: GameState) (rules: Rules) =
     let took = sw.ElapsedMilliseconds
     printState state
     ksprintf log "Best move is %d -> (%d,%d) with value %d (took %d ms)" (srcHandIndex) (targetGridIndex/3)
-                                                                    (targetGridIndex%3) value took
+                                                                         (targetGridIndex%3) value took
     printState <| AI.executeMove state rules (srcHandIndex, targetGridIndex)
     match state.turnPhase with
         | MyCardSelection currentHandIndex ->
@@ -131,13 +131,13 @@ let waitForUserToPressScreenshotHotkey() =
 
 let playOneTurnAtATime rules =
     while true do
-        ksprintf log "Take screenshot to play one turn"
+        ksprintf log "\r\nTake screenshot to play one turn"
         let screenshotFilename = waitForScreenshot()
         let state = readGameStateFromScreenshot screenshotFilename
         if state.turnPhase = OpponentsTurn then
             ksprintf log "Not my turn..."
         else
-            ksprintf log "My turn, playing!"
+            ksprintf log "My turn, calculating best move..."
             playOneTurn state rules
 
 let mutable screenshotCount = 0
@@ -147,9 +147,15 @@ let rec takeScreenshot(): SimpleBitmap =
     //if (screenshotCount+1) % 100 = 0 then
     //    clearSteamScreenshots()
     let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
-    sendKey screenshotHotKey
-    let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 10000)
+
+    let ssTimer = new System.Timers.Timer(200.0)
+    ssTimer.Elapsed.Add (fun _ -> sendKey screenshotHotKey)
+    ssTimer.AutoReset <- false
+    ssTimer.Start()
+
+    let changedResult = watcher.WaitForChanged(IO.WatcherChangeTypes.Created, 4000)
     watcher.Dispose()
+    ssTimer.Close()
     if changedResult.TimedOut then
         ksprintf log "Timed out while waiting for screenshot, retrying..."
         takeScreenshot()
@@ -217,7 +223,7 @@ let rec playMatch (rules: Rules) =
             lastScreenshot <- takeScreenshot()
             state <- readGameState lastScreenshot
         if readGamePhase lastScreenshot = Ongoing then
-            ksprintf log "My turn now, playing!"
+            ksprintf log "My turn now, calculating best move..."
             playOneTurn state rules
             Thread.Sleep 1500
             lastScreenshot <- takeScreenshot()
@@ -260,9 +266,9 @@ let playOneGameAtATimeStartingFromRulesScreen() =
         ksprintf log "Take screenshot in rules screen to play one game"
         let rules = waitForScreenshotBitmap() |> readRules
         if not rules.isValidRuleSet then
-            ksprintf log "Invalid rule set: %A" rules
+            ksprintf log "Invalid rule set: %A" rules.rules
         else
-            ksprintf log "Read valid rules: %A" rules
+            ksprintf log "Read valid rules: %A" rules.rules
             sendAndSleep "x" 1700 // dismiss rules
             if not (rules.has DomainTypes.Random) then
                 chooseCards()
@@ -273,6 +279,7 @@ let playGame initState rules =
     let mutable state = initState
     let sw = new Diagnostics.Stopwatch()
     while not (AI.isTerminalNode state) do
+        ksprintf log "Game state before move:"
         printState state
         sw.Restart()
         let (move, value) = AI.getBestMove state rules 9
