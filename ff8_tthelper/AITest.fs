@@ -221,10 +221,6 @@ let executeMoveWorksCorrectly (data: ExecuteMoveTestData): unit =
     System.Console.WriteLine("executeMoveWorksCorrectly: " + data.comment)
     let newGameState = executeMove data.before data.rules data.move
     newGameState |> should equal data.after
-    //newGameState.turnPhase |> should equal data.after.turnPhase
-    //newGameState.myHand |> should equal data.after.myHand
-    //newGameState.opHand |> should equal data.after.opHand
-    //newGameState.playGrid |> should equal data.after.playGrid
 
 [<TestFixture>]
 type ``AI test`` ()=

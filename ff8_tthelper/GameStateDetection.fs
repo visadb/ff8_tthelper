@@ -43,21 +43,21 @@ let private elementSize = Size(54, 64)
 let private cardElementOffset = Size(149, 10)
 let private playGridSlotElementOffset = Size(76, 107)
 
-let resultDrawRectangle = Rectangle(837, 438, 3, 205)
-let resultWinRectangle = Rectangle(1324, 438, 34, 78)
-let resultLoseRectangle = Rectangle(1320, 551, 47, 57)
+let private resultDrawRectangle = Rectangle(837, 438, 3, 205)
+let private resultWinRectangle = Rectangle(1324, 438, 34, 78)
+let private resultLoseRectangle = Rectangle(1320, 551, 47, 57)
 
-let spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
+let private spoilsSelectNumberRectangle = Rectangle(823, 110, 21, 41)
 
-let cardChoosingScreenCardSymbolRectangle (i: int) =
+let private cardChoosingScreenCardSymbolRectangle (i: int) =
     Rectangle(509, 221 + int(58.5*float(i-1)), 6, 11)
 
-let ruleBulletRectangle ((i,j): int*int) = Rectangle(695 + j*64, 203 + i*36, 12, 17)
-let ruleRectangle ((i,j): int*int) =
+let private ruleBulletRectangle ((i,j): int*int) = Rectangle(695 + j*64, 203 + i*36, 12, 17)
+let private ruleRectangle ((i,j): int*int) =
     let bulletRect = ruleBulletRectangle (i,j)
     Rectangle(bulletRect.X + bulletRect.Width + 20, bulletRect.Y, 373, bulletRect.Height)
 
-let isWhitishPixel minBr maxDiff (pixel: IntPixel) =
+let private isWhitishPixel minBr maxDiff (pixel: IntPixel) =
     let r, g, b = R pixel, G pixel, B pixel
     r > minBr && g > minBr && b > minBr
  && abs(r - g) < maxDiff && abs(r - b) < maxDiff && abs(g - b) < maxDiff
@@ -165,8 +165,8 @@ let private readCardOwner (screenshot: SimpleBitmap) (cardPos: Point) =
         | (my, op) when my < op && op > 15 -> Op
         | _ -> raise <| GameStateDetectionError("Unable to determine card owner")
 
-let modelPowerModifierMinus = SimpleBitmap.fromFile(imageDir + "power_modifier_minus.png")
-let modelPowerModifierPlus =  SimpleBitmap.fromFile(imageDir + "power_modifier_plus.png")
+let private modelPowerModifierMinus = SimpleBitmap.fromFile(imageDir + "power_modifier_minus.png")
+let private modelPowerModifierPlus =  SimpleBitmap.fromFile(imageDir + "power_modifier_plus.png")
 
 let private readPowerModifier screenshot (cardTopLeft: Point) =
     let actual = getPowerModifierBitmap screenshot cardTopLeft
@@ -193,21 +193,19 @@ let private readCardElement screenshot (cardTopLeft: Point): Element option =
     else
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let modelDigits: SimpleBitmap list =
+let private modelDigits: SimpleBitmap list =
     [ for i in 1..10 -> SimpleBitmap.fromFile(sprintf "%sdigit%s.png" imageDir (powerToDigitName i)) ]
 
 let private readDigitValue (digitBitmap: SimpleBitmap): int option =
     let candidatesWithDiffs =
         modelDigits |> List.mapi (fun i modelDigit -> (i+1, bitmapDiff digitBitmap modelDigit))
-                    //|> List.map (fun (i,diff) -> printfn "Power %d = %f" i diff; (i,diff))
                     
     if List.isEmpty <| (candidatesWithDiffs |> List.filter (snd >> ((>) 0.17))) then
-        //digitBitmap.Save(imageDir + "failed_" + ((List.minBy snd candidatesWithDiffs |> fst).ToString()) + ".png")
         None
     else
         Some (candidatesWithDiffs |> List.minBy snd |> fst)
 
-let readCard screenshot
+let private readCard screenshot
                      (owner: Player option)
                      (powerModifier: int option)
                      (element: Element option)
@@ -239,7 +237,7 @@ let private readHand screenshot
         |> Array.mapi (shiftCardIfSelected)
         |> Array.map (readCard screenshot (Some owner) (Some 0) None)
 
-let modelEmptyPlayGridSlotElements =
+let private modelEmptyPlayGridSlotElements =
     [Earth,2 ; Fire,4 ; Holy,2 ; Ice,3 ; Poison,4 ; Thunder,3 ; Water,3 ; Wind,4]
         |> List.collect (fun (elem,num) ->
             let elemString = (sprintf "%A" elem).ToLower()
@@ -301,10 +299,10 @@ let readGameStateWithTurnPhase forcedTurnPhase screenshot =
 
 let readGameState = readGameStateWithTurnPhase None
 
-let isAtCardSelectionConfirmationNo screenshot =
+let private isAtCardSelectionConfirmationNo screenshot =
     isCursorAtPoint screenshot (Point(806, 603))
 
-let getGamePhaseDetectionBitmap (gamePhase: GamePhase) screenshot =
+let private getGamePhaseDetectionBitmap (gamePhase: GamePhase) screenshot =
     let rect = match gamePhase with
                 | Draw -> resultDrawRectangle
                 | Won -> resultWinRectangle
@@ -312,7 +310,7 @@ let getGamePhaseDetectionBitmap (gamePhase: GamePhase) screenshot =
                 | _ -> invalidArg "gamePhase" "invalid"
     subBitmap screenshot rect
 
-let modelGamePhaseDetectionBitmaps =
+let private modelGamePhaseDetectionBitmaps =
     [(Won,  SimpleBitmap.fromFile(imageDir + @"model_result_won.png"))
      (Draw, SimpleBitmap.fromFile(imageDir + @"model_result_draw.png"))
      (Lost, SimpleBitmap.fromFile(imageDir + @"model_result_lost.png"))]
@@ -329,9 +327,9 @@ let readGamePhase screenshot: GamePhase =
         | (gamePhase, diff) when diff < 0.03 -> gamePhase
         | _ -> Ongoing
 
-let getSpoilsSelectionNumberBitmap screenshot = subBitmap screenshot spoilsSelectNumberRectangle
+let private getSpoilsSelectionNumberBitmap screenshot = subBitmap screenshot spoilsSelectNumberRectangle
 
-let modelSpoilsSelectionNumberBitmaps =
+let private modelSpoilsSelectionNumberBitmaps =
     [(1, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_1.png"))
      (2, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_2.png"))
      (4, SimpleBitmap.fromFile(imageDir + @"model_spoils_number_4.png"))]
@@ -346,24 +344,24 @@ let readSpoilsSelectionNumber screenshot =
         | (num, diff) when diff < 0.03 -> Some num
         | _ -> None
 
-let getCardChoosingScreenCardSymbolBitmap screenshot i =
+let private getCardChoosingScreenCardSymbolBitmap screenshot i =
     subBitmap screenshot (cardChoosingScreenCardSymbolRectangle i)
 
-let modelCardSymbol = SimpleBitmap.fromFile(imageDir + @"model_card_symbol.png")
+let private modelCardSymbol = SimpleBitmap.fromFile(imageDir + @"model_card_symbol.png")
 
 let readNumberOfCardsOnCardChoosingScreen screenshot =
     seq { for i in 2..12 ->
             bitmapDiff (getCardChoosingScreenCardSymbolBitmap screenshot i) modelCardSymbol}
         |> Seq.findIndex ((<) 0.03) |> ((+) 1)
 
-let modelRuleBullet = SimpleBitmap.fromFile(imageDir + @"model_rulebullet.png")
+let private modelRuleBullet = SimpleBitmap.fromFile(imageDir + @"model_rulebullet.png")
 
-let getRuleBulletBitmap screenshot (i,j) =
+let private getRuleBulletBitmap screenshot (i,j) =
     subBitmap screenshot (ruleBulletRectangle (i,j))
-let getRuleBitmap screenshot (i,j) =
+let private getRuleBitmap screenshot (i,j) =
     subBitmap screenshot (ruleRectangle (i,j))
 
-let modelRules = [
+let private modelRules = [
         ([Elemental],          SimpleBitmap.fromFile(imageDir + @"model_rule_elemental.png"))
         ([Open],               SimpleBitmap.fromFile(imageDir + @"model_rule_open.png"))
         ([Plus],               SimpleBitmap.fromFile(imageDir + @"model_rule_plus.png"))

@@ -1,14 +1,11 @@
 ﻿open GameStateDetection
-
 open DomainTypes
 open BitmapHelpers
-open GameStateDetectionTest
 open TestHelpers
 
 open System
 open Printf
 
-open System.Drawing
 open System.Threading
 
 let logFile = @"C:\tmp\ff8helper_log.txt"
@@ -20,25 +17,21 @@ let log msg =
     logStream.Flush()
     Console.WriteLine(toWrite)
     
-
-//let screenCaptureDir = @"C:\tmp\fraps_screenshots"
-//let screenshotFilePattern = "*.jpg"
-//let screenshotHotKey = "F11"
 let screenCaptureDir = @"D:\Program Files\Steam\userdata\33243684\760\remote\39150\screenshots"
 let screenshotFilePattern = "????-??-??_?????.jpg"
 let screenshotHotKey = "F12"
 
 let bootstrap () =
-    //Bootstrap.savePowerModifiersFromExampleScreenshots()
-    //Bootstrap.saveCursorFromExampleScreenshot()
-    //Bootstrap.saveDigitFilesFromExampleScreenshot()
-    //Bootstrap.printDiffs()
-    //Bootstrap.saveElementSymbolsFromExampleScreenshots()
-    //Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
-    //Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
-    //Bootstrap.saveResultDetectionBitmaps()
-    //Bootstrap.saveSpoilsSelectionNumberBitmaps()
-    //Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
+    Bootstrap.savePowerModifiersFromExampleScreenshots()
+    Bootstrap.saveCursorFromExampleScreenshot()
+    Bootstrap.saveDigitFilesFromExampleScreenshot()
+    Bootstrap.printDiffs()
+    Bootstrap.saveElementSymbolsFromExampleScreenshots()
+    Bootstrap.saveEmptyElementlessPlayGridSlotElementBitmaps()
+    Bootstrap.saveEmptyPlayGridSlotElementBitmaps()
+    Bootstrap.saveResultDetectionBitmaps()
+    Bootstrap.saveSpoilsSelectionNumberBitmaps()
+    Bootstrap.saveCardChoosingScreenCardSymbolBitmap()
     Bootstrap.saveModelRuleBitmaps()
     ()
 
@@ -115,13 +108,14 @@ let waitForScreenshot() =
 
 let waitForScreenshotBitmap() =
     let mutable bitmap: SimpleBitmap option = None
-    let triesLeft = 5
+    let mutable triesLeft = 5
     while bitmap.IsNone && triesLeft > 0 do
         let filename = waitForScreenshot()
         try
             bitmap <- Some (SimpleBitmap.fromFile(filename))
         with
-            | _ -> ksprintf log "Failed to read screenshot"
+            | _ -> triesLeft <- triesLeft - 1
+                   ksprintf log "Failed to read screenshot"
     bitmap.Value
 
 let waitForUserToPressScreenshotHotkey() =
@@ -142,12 +136,11 @@ let playOneTurnAtATime rules =
 
 let mutable screenshotCount = 0
 let rec takeScreenshot(): SimpleBitmap =
-    //if (screenshotCount+1) % 100 > 95 then
-    //    ksprintf log "Will clear screenshots soon, count: %d" screenshotCount
     //if (screenshotCount+1) % 100 = 0 then
     //    clearSteamScreenshots()
     let watcher = new IO.FileSystemWatcher(screenCaptureDir, screenshotFilePattern)
 
+    // Take screenshot after 200ms when watcher is probably ready.
     let ssTimer = new System.Timers.Timer(200.0)
     ssTimer.Elapsed.Add (fun _ -> sendKey screenshotHotKey)
     ssTimer.AutoReset <- false
@@ -164,13 +157,11 @@ let rec takeScreenshot(): SimpleBitmap =
         Thread.Sleep 100
         let filename = screenCaptureDir + @"\" + changedResult.Name
         try
-            let ss = SimpleBitmap.fromFile(filename)
-            ss
+            SimpleBitmap.fromFile(filename)
         with
             | _ -> // retry once
                 Thread.Sleep 100
-                let ss = SimpleBitmap.fromFile(filename)
-                ss
+                SimpleBitmap.fromFile(filename)
 
 let chooseCards() = 
     ksprintf log "Choosing cards"
@@ -203,15 +194,6 @@ let chooseCards() =
     Thread.Sleep 1000
     sendAndSleep "x" 2500
     ksprintf log "Cards chosen!"
-
-let startGame i =
-    ksprintf log "--------------------------------------------------------"
-    ksprintf log "Starting game %d" i
-    sendAndSleep "s" 700 // Play game?
-    sendAndSleep "x" 2000 // Yes
-    sendAndSleep "x" 2000 // Talking
-    sendAndSleep "x" 1700 // Rules
-    chooseCards()
 
 let rec playMatch (rules: Rules) =
     let mutable lastScreenshot = takeScreenshot()
@@ -253,11 +235,20 @@ let chooseSpoils() =
         ksprintf log "Nothing to do, waiting for game to end..."
         Thread.Sleep 10000
 
+let startGameAgainstThatSittingDude i =
+    ksprintf log "--------------------------------------------------------"
+    ksprintf log "Starting game %d" i
+    sendAndSleep "s" 700 // Play game?
+    sendAndSleep "x" 2000 // Yes
+    sendAndSleep "x" 2000 // Talking
+    sendAndSleep "x" 1700 // Rules
+    chooseCards()
+
 let autoPlayAgainstThatSittingDude rules =
     waitForUserToPressScreenshotHotkey()
     // assert/assume that outside
     for i in 0 .. 2000000000 do
-        startGame i
+        startGameAgainstThatSittingDude i
         playMatch rules
         chooseSpoils()
 
@@ -273,7 +264,6 @@ let playOneGameAtATimeStartingFromRulesScreen() =
             if not (rules.has DomainTypes.Random) then
                 chooseCards()
             playMatch rules
-            //chooseSpoils()
 
 let playGame initState rules =
     let mutable state = initState
@@ -308,29 +298,13 @@ let main argv =
     let sw = new Diagnostics.Stopwatch()
     sw.Start()
 
+    // Choose mode by uncommenting one line below:
     //bootstrap()
-
-    //watchScreenshotDir()
-    //playScreenshot <| screenshotDir + @"in-game\example_screenshot_4.jpg"
-    //for i in 0..2 do
-    //    playScreenshot (screenshotDir + @"in-game\card_selection_cursor_1.jpg") (Rules.having [SameWall; TradeOne])
-    //playScreenshot <| screenCaptureDir + @"\2015-08-16_00001.jpg"
     //playScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
     //playGame testState { Rules.none with isSame = true }
-        
-    //let gameState = readGameStateFromScreenshot <| screenshotDir + @"in-game\card_with_power_a.jpg"
-    //printfn "%O" gameState
-
-    //while true do
-    //    waitForUserToPressScreenshotHotkey()
-    //    clearSteamScreenshots()
-    //    Thread.Sleep 500
-
-    //autoPlayAgainstThatSittingDude()
     //playOneTurnAtATime()
+    //autoPlayAgainstThatSittingDude Rules.none
     playOneGameAtATimeStartingFromRulesScreen()
-
-    // printfn "Rules: %A" <| (readRules <| SimpleBitmap.fromFile(screenshotDir + @"getting_in\rules_open_sudden_random_sameplus_elemental_one.jpg"))
 
     sw.Stop()
     ksprintf log "Time elapsed: %d ms" sw.ElapsedMilliseconds

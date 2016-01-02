@@ -5,18 +5,18 @@ open DomainTypes
 let inline isTerminalNode (node: GameState) =
     node.myHand.[4].IsNone || node.opHand.[4].IsNone
 
-let inline countHandCards (hand: Hand) =
+let inline private countHandCards (hand: Hand) =
     let firstFullIndex = (hand |> Array.tryFindIndex Option.isSome)
     if firstFullIndex.IsSome then 5 - firstFullIndex.Value else 0
 
-let inline emptyNeighbors (node: GameState) gi =
+let inline private emptyNeighbors (node: GameState) gi =
     [gi-3,0; gi-1,1; gi+1,2; gi+3,3]
         |> List.filter (fun (ngi,_) ->
             ngi >= 0 && ngi <= 8
          && ((gi%3 = ngi%3) <> (gi/3 = ngi/3)) // Either row or col changed, not both
          && node.playGrid.[ngi].isEmpty)
 
-let inline canCardBeCaptured (node: GameState)
+let inline private canCardBeCaptured (node: GameState)
                       (otherPlayerMaxPowers: int array array)
                       (gridIndex: int)
                       (gridSlot: PlayGridSlot) =
@@ -24,7 +24,7 @@ let inline canCardBeCaptured (node: GameState)
         otherPlayerMaxPowers.[neighborIndex].[3-powerIndex] > gridSlot.card.powers.[powerIndex])
     ret
 
-let inline evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots gridIndex gridSlot =
+let inline private evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPowersInSlots gridIndex gridSlot =
     match gridSlot with
         | Empty _ -> 0
         | Full c ->
@@ -32,23 +32,23 @@ let inline evaluateGridSlot (node: GameState) myHandMaxPowersInSlots opHandMaxPo
             let canBeCaptured = canCardBeCaptured node otherPlayerMaxPowers gridIndex gridSlot
             (if c.owner = Me then 1 else -1) * (if canBeCaptured then 5 else 15)
     
-let inline cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
+let inline private cardPowersInGridSlotWithElement (card: Card) (slotElem: Element option) =
     match slotElem with
         | None -> card.powers
         | eo -> card.powers |> Array.map (if eo = slotElem then ((+) 1) else (fun i -> i-1))
-let inline maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
+let inline private maxPowersInGridSlotWithElem (hand: Hand) (elem: Element option) =
     hand |> Array.fold (fun maxPs oc ->
                             match oc with
                                 | None -> maxPs
                                 | Some c -> cardPowersInGridSlotWithElement c elem) [|-1;-1;-1;-1|]
-let inline handMaxPowersInEmptyGridSlots (node: GameState) hand =
+let inline private handMaxPowersInEmptyGridSlots (node: GameState) hand =
     node.playGrid.Slots |> Array.map (fun slot ->
         match slot with
             | Full _ -> Array.empty
             | Empty e -> maxPowersInGridSlotWithElem hand e
     )
 
-let inline evaluateNode (node: GameState) =
+let inline private evaluateNode (node: GameState) =
     let myHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.myHand
     let opHandMaxPowersInSlots = handMaxPowersInEmptyGridSlots node node.opHand
     let gridValue = node.playGrid.Slots |> Array.mapi (evaluateGridSlot node
@@ -144,7 +144,7 @@ let private updatePlayGrid (newPlayGrid: PlayGrid) (playGrid: PlayGrid) (rules: 
     updateNeighbors gi false // normal strength based capture
 
 
-let executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,playGridIndex) =
+let private executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,playGridIndex) =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let newTurnPhase = if isMaximizingPlayer then OpponentsTurn else MyCardSelection 4
     let newOpHand = if isMaximizingPlayer then node.opHand else handWithout newHand handIndex node.opHand
@@ -156,10 +156,10 @@ let executeMovePrealloc newPlayGrid newHand (node: GameState) rules (handIndex,p
 let executeMove node rules move =
     executeMovePrealloc (PlayGrid(Array.create 9 (Empty None))) (Array.create 5 None) node rules move
 
-let preallocPlayGrids = [| for i in 1 .. 5*9*9 -> PlayGrid(Array.create 9 (Empty None)) |]
-let preallocHands: Hand[] = [| for i in 1 .. 5*9*9 -> Array.create 5 None |]
+let private preallocPlayGrids = [| for i in 1 .. 5*9*9 -> PlayGrid(Array.create 9 (Empty None)) |]
+let private preallocHands: Hand[] = [| for i in 1 .. 5*9*9 -> Array.create 5 None |]
 
-let childStates (node: GameState) rules depth =
+let private childStates (node: GameState) rules depth =
     let isMaximizingPlayer = node.turnPhase <> OpponentsTurn
     let sourceHand = if isMaximizingPlayer then node.myHand else node.opHand
     let inline isValidMove handIndex playGridIndex =
