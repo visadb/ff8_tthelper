@@ -1,6 +1,6 @@
 # Final Fantasy VIII Triple Triad AI
 
-This program will autonomously play a game of Triple Triad within Final Fantasy VIII (Steam edition, Windows). Game state is read from screenshots and the game is controlled by emulating keystrokes. Best moves are determined by a full depth alpha-beta minimax search that maximizes the card difference. All rule combinations that contain the Open rule are supported, and **the AI is guaranteed to win the gme if it is possible**.
+This program will autonomously play a game of Triple Triad within Final Fantasy VIII (Steam edition, Windows). Game state is read from screenshots and the game is controlled by emulating keystrokes. Best moves are determined by a full depth alpha-beta minimax search that maximizes the card difference. All rule combinations that contain the Open rule are supported, and **the AI is guaranteed to win the game if it is possible**.
 
 [![](http://img.youtube.com/vi/TWLy6QsqN-4/0.jpg)](http://www.youtube.com/watch?v=TWLy6QsqN-4 "AI in action")
 
