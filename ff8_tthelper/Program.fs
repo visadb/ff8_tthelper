@@ -9,6 +9,8 @@ open Printf
 open System.Threading
 
 let logFile = @"C:\tmp\ff8helper_log.txt"
+let fileInfo = new IO.FileInfo(logFile);
+if not <| fileInfo.Directory.Exists then System.IO.Directory.CreateDirectory(fileInfo.DirectoryName) |> ignore
 let logStream = new IO.StreamWriter(logFile, true)
 
 let log msg =

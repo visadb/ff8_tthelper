@@ -9,6 +9,7 @@ This program will autonomously play a game of Triple Triad within Final Fantasy 
 
 1. Install AutoHotkey
 1. Open this project in Visual Studio 2015
+	1. If FSharp.Core 4.5 is not installed, you can install it from Visual Studio>Tools>NuGet Package Manager> Package Manager Console with the command "Install-Package FSharp.Core -Version 4.5.0"
 1. Modify hardcoded paths in Program.fs
   - screenCaptureDir: directory where Steam stores screenshots of Final Fantasy VIII
   - ahkProg: Path to AutoHotkey exe.
